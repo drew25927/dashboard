@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-export function middleware(req) {
+export function proxy(req) {
   const { pathname } = req.nextUrl;
   const cookie = req.cookies.get('admin_session')?.value;
   const authorized = cookie === process.env.ADMIN_PASSWORD;
