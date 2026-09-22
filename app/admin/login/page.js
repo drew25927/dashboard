@@ -1,13 +1,22 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { DEFAULT_COURSE_TITLE } from '../../../lib/config';
 
 export default function LoginPage() {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [courseTitle, setCourseTitle] = useState(DEFAULT_COURSE_TITLE);
   const router = useRouter();
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((j) => { if (j.courseTitle) setCourseTitle(j.courseTitle); })
+      .catch(() => {});
+  }, []);
 
   async function submit(e) {
     e.preventDefault();
@@ -31,7 +40,7 @@ export default function LoginPage() {
   return (
     <div className="page">
       <div className="login-card">
-        <h1>AI영상 출결 관리자</h1>
+        <h1>{courseTitle} 관리자</h1>
         {error && <div className="err">{error}</div>}
         <form onSubmit={submit}>
           <input
