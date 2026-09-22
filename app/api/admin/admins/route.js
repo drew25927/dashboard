@@ -4,14 +4,16 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabaseAdmin';
 import { getAuthorizedAdmin, hashPassword } from '../../../../lib/adminAuth';
 
-async function requireAdmin() {
+// 관리자 계정 관리는 마스터만 가능 (일반 관리자는 접근 불가)
+async function requireMaster() {
   const admin = await getAuthorizedAdmin();
   if (!admin) return { error: NextResponse.json({ error: 'unauthorized' }, { status: 401 }) };
+  if (admin.id !== 'master') return { error: NextResponse.json({ error: '마스터 계정만 접근할 수 있습니다.' }, { status: 403 }) };
   return { admin };
 }
 
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await requireMaster();
   if (error) return error;
 
   const db = supabaseAdmin();
@@ -21,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const { error } = await requireAdmin();
+  const { error } = await requireMaster();
   if (error) return error;
 
   const { name, password } = await req.json();
@@ -44,7 +46,7 @@ export async function POST(req) {
 }
 
 export async function DELETE(req) {
-  const { admin: me, error } = await requireAdmin();
+  const { admin: me, error } = await requireMaster();
   if (error) return error;
 
   const id = new URL(req.url).searchParams.get('id');

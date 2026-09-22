@@ -84,6 +84,8 @@ export default function AdminPage() {
     );
   }
 
+  const isMaster = me?.id === 'master';
+
   return (
     <div className="page wide">
       <div className="banner">
@@ -97,7 +99,12 @@ export default function AdminPage() {
       <div className="hint">💡 여기서 저장하면 학생용 페이지에 <b>즉시 반영</b>됩니다 (별도 갱신 요청 필요 없음).</div>
 
       <div className="tabs">
-        {[['attend', '출석체크'], ['students', '교육생 명단'], ['sessions', '회차 일정'], ['course', '과정 정보'], ['notice', '공지사항'], ['links', '링크 설정'], ['questions', '질문 게시판'], ['admins', '관리자 계정'], ['overview', '전체 현황']].map(([k, label]) => (
+        {[
+          ['attend', '출석체크'], ['students', '교육생 명단'], ['sessions', '회차 일정'], ['course', '과정 정보'],
+          ['notice', '공지사항'], ['links', '링크 설정'], ['questions', '질문 게시판'],
+          ...(isMaster ? [['admins', '관리자 계정']] : []),
+          ['overview', '전체 현황']
+        ].map(([k, label]) => (
           <button key={k} className={'tab-btn' + (tab === k ? ' active' : '')} onClick={() => setTab(k)}>{label}</button>
         ))}
       </div>
@@ -126,7 +133,7 @@ export default function AdminPage() {
       {tab === 'questions' && (
         <QuestionsPanel showToast={showToast} />
       )}
-      {tab === 'admins' && (
+      {tab === 'admins' && isMaster && (
         <AdminsPanel me={me} showToast={showToast} />
       )}
       {tab === 'overview' && (
