@@ -13,6 +13,16 @@ function fmtDate(d) {
 function h(x) { return Math.round((x || 0) * 10) / 10 + 'h'; }
 function pct(x) { return Math.round((x || 0) * 100) + '%'; }
 
+async function apiCall(url, options) {
+  const res = await fetch(url, options);
+  let json = null;
+  try { json = await res.json(); } catch (e) { /* no body */ }
+  if (!res.ok) {
+    throw new Error((json && json.error) || ('요청 실패 (' + res.status + ')'));
+  }
+  return json;
+}
+
 export default function AdminPage() {
   const [tab, setTab] = useState('attend');
   const [sessions, setSessions] = useState([]);
@@ -33,16 +43,19 @@ export default function AdminPage() {
   }, []);
 
   const loadAll = useCallback(async () => {
-    const [sRes, stRes, aRes] = await Promise.all([
-      fetch('/api/admin/sessions'),
-      fetch('/api/admin/students'),
-      fetch('/api/admin/attendance')
-    ]);
-    const [sJson, stJson, aJson] = await Promise.all([sRes.json(), stRes.json(), aRes.json()]);
-    setSessions((sJson.sessions || []).sort((a, b) => a.n - b.n));
-    setStudents((stJson.students || []).sort((a, b) => Number(a.id) - Number(b.id)));
-    setAttendance(aJson.attendance || []);
-  }, []);
+    try {
+      const [sJson, stJson, aJson] = await Promise.all([
+        apiCall('/api/admin/sessions'),
+        apiCall('/api/admin/students'),
+        apiCall('/api/admin/attendance')
+      ]);
+      setSessions((sJson.sessions || []).sort((a, b) => a.n - b.n));
+      setStudents((stJson.students || []).sort((a, b) => Number(a.id) - Number(b.id)));
+      setAttendance(aJson.attendance || []);
+    } catch (err) {
+      showToast('데이터 불러오기 실패: ' + err.message);
+    }
+  }, [showToast]);
 
   useEffect(() => {
     loadAll().finally(() => setLoading(false));
@@ -125,18 +138,19 @@ function AttendPanel({ sessions, students, attendance, loadAll, showToast }) {
       status: statusFor(st.id),
       recognizedHours: recognizedHoursFor(statusFor(st.id), session.hours)
     }));
-    const res = await fetch('/api/admin/attendance', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rows })
-    });
-    setSaving(false);
-    if (res.ok) {
+    try {
+      await apiCall('/api/admin/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows })
+      });
       setPicks({});
       await loadAll();
       showToast('저장했습니다');
-    } else {
-      showToast('저장 실패');
+    } catch (err) {
+      showToast('저장 실패: ' + err.message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -187,20 +201,34 @@ function AttendPanel({ sessions, students, attendance, loadAll, showToast }) {
 
 function StudentsPanel({ students, loadAll, showToast }) {
   async function addStudent() {
-    const res = await fetch('/api/admin/students', { method: 'POST' });
-    if (res.ok) { await loadAll(); showToast('학생을 추가했습니다'); }
+    try {
+      await apiCall('/api/admin/students', { method: 'POST' });
+      await loadAll();
+      showToast('학생을 추가했습니다');
+    } catch (err) {
+      showToast('추가 실패: ' + err.message);
+    }
   }
   async function updateField(id, field, value) {
-    await fetch('/api/admin/students', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, field, value })
-    });
+    try {
+      await apiCall('/api/admin/students', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, field, value })
+      });
+    } catch (err) {
+      showToast('저장 실패: ' + err.message);
+    }
   }
   async function removeStudent(id) {
     if (!confirm('학생(ID ' + id + ')을 삭제할까요? 출결 기록도 함께 사라집니다.')) return;
-    const res = await fetch('/api/admin/students?id=' + encodeURIComponent(id), { method: 'DELETE' });
-    if (res.ok) { await loadAll(); showToast('삭제했습니다'); }
+    try {
+      await apiCall('/api/admin/students?id=' + encodeURIComponent(id), { method: 'DELETE' });
+      await loadAll();
+      showToast('삭제했습니다');
+    } catch (err) {
+      showToast('삭제 실패: ' + err.message);
+    }
   }
 
   return (
@@ -232,13 +260,17 @@ function StudentsPanel({ students, loadAll, showToast }) {
 
 function SessionsPanel({ sessions, loadAll, showToast }) {
   async function updateField(n, field, value) {
-    await fetch('/api/admin/sessions', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ n, field, value })
-    });
-    await loadAll();
-    showToast('저장됨');
+    try {
+      await apiCall('/api/admin/sessions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ n, field, value })
+      });
+      await loadAll();
+      showToast('저장됨');
+    } catch (err) {
+      showToast('저장 실패: ' + err.message);
+    }
   }
 
   return (
