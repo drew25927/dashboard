@@ -116,9 +116,14 @@ export default async function StudentPage({ searchParams }) {
           )}
 
           <div className="buttons">
-            {links.map((l) => (
-              <a key={l.key} className={'btn-tile' + (BUTTON_STYLE[l.key] ? ' ' + BUTTON_STYLE[l.key] : '')} href={l.url}>{l.label}</a>
-            ))}
+            {links.map((l) => {
+              const href = l.type === 'board' ? '/board?id=' + student.id
+                : l.type === 'page' ? '/page/' + l.key + '?id=' + student.id
+                : l.url;
+              return (
+                <a key={l.key} className={'btn-tile' + (BUTTON_STYLE[l.key] ? ' ' + BUTTON_STYLE[l.key] : '')} href={href}>{l.label}</a>
+              );
+            })}
           </div>
 
           <div className="qr-row">

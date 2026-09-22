@@ -34,10 +34,13 @@ create table if not exists admins (
 );
 
 -- 학생용 페이지의 안내 버튼(Zoom, 장소 안내 등) — 관리자 화면에서 라벨/URL 수정 가능
+-- type: 'link'(외부 URL로 이동) | 'page'(사이트 내 설명 페이지) | 'board'(질문 게시판)
 create table if not exists links (
   key text primary key,
   label text not null,
-  url text not null default '#'
+  url text not null default '#',
+  type text not null default 'link',
+  content text not null default ''
 );
 
 -- RLS 활성화 + 정책 없음 = anon/public 키로는 아무것도 읽고 쓸 수 없음.
@@ -48,14 +51,26 @@ alter table attendance enable row level security;
 alter table admins enable row level security;
 alter table links enable row level security;
 
-insert into links (key, label, url) values
-  ('zoom',   '온라인 강의실 입장 (Zoom)', '#'),
-  ('venue',  '오프라인 장소 안내', '#'),
-  ('office', '운영사무국 문의', '#'),
-  ('submit', '결과물 제출 안내', '#'),
-  ('notice', '공지사항 · 자료실', '#'),
-  ('replay', '강의 다시보기 (녹화본)', '#')
+insert into links (key, label, url, type, content) values
+  ('zoom',   '온라인 강의실 입장 (Zoom)', '#', 'link', ''),
+  ('venue',  '오프라인 장소 안내', '#', 'link', ''),
+  ('office', '운영사무국 문의', '#', 'board', ''),
+  ('submit', '결과물 제출 안내', '#', 'page', '결과물 제출 방법을 안내합니다.'),
+  ('notice', '공지사항 · 자료실', '#', 'page', '공지사항과 자료실 안내입니다.'),
+  ('replay', '강의 다시보기 (녹화본)', '#', 'page', '지난 강의 다시보기 방법을 안내합니다.')
 on conflict (key) do nothing;
+
+-- 질문 게시판 (운영사무국 문의)
+create table if not exists questions (
+  id uuid primary key default gen_random_uuid(),
+  student_id text,
+  student_name text not null default '',
+  question text not null,
+  answer text,
+  created_at timestamptz not null default now(),
+  answered_at timestamptz
+);
+alter table questions enable row level security;
 
 -- 학생용 페이지의 QR 코드 이미지 (관리자 화면에서 업로드). image_url은 Supabase Storage 공개 URL.
 create table if not exists qr_codes (

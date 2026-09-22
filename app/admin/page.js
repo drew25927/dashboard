@@ -89,7 +89,7 @@ export default function AdminPage() {
       <div className="hint">💡 여기서 저장하면 학생용 페이지에 <b>즉시 반영</b>됩니다 (별도 갱신 요청 필요 없음).</div>
 
       <div className="tabs">
-        {[['attend', '출석체크'], ['students', '교육생 명단'], ['sessions', '회차 일정'], ['notice', '공지사항'], ['links', '링크 설정'], ['admins', '관리자 계정'], ['overview', '전체 현황']].map(([k, label]) => (
+        {[['attend', '출석체크'], ['students', '교육생 명단'], ['sessions', '회차 일정'], ['notice', '공지사항'], ['links', '링크 설정'], ['questions', '질문 게시판'], ['admins', '관리자 계정'], ['overview', '전체 현황']].map(([k, label]) => (
           <button key={k} className={'tab-btn' + (tab === k ? ' active' : '')} onClick={() => setTab(k)}>{label}</button>
         ))}
       </div>
@@ -111,6 +111,9 @@ export default function AdminPage() {
           <LinksPanel showToast={showToast} />
           <QrPanel showToast={showToast} />
         </>
+      )}
+      {tab === 'questions' && (
+        <QuestionsPanel showToast={showToast} />
       )}
       {tab === 'admins' && (
         <AdminsPanel me={me} showToast={showToast} />
@@ -419,22 +422,44 @@ function LinksPanel({ showToast }) {
 
   if (!links) return <div className="panel"><div className="empty">불러오는 중…</div></div>;
 
+  const TYPE_LABEL = { link: '외부 링크', page: '설명 페이지', board: '질문 게시판' };
+
   return (
     <div className="panel">
       <h2>학생용 페이지 안내 버튼</h2>
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>키</th><th>버튼 표시 문구</th><th>연결 URL</th></tr></thead>
-          <tbody>
-            {links.map((l) => (
-              <tr key={l.key}>
-                <td className="mono">{l.key}</td>
-                <td><input type="text" style={{ minWidth: 200 }} defaultValue={l.label} onBlur={(e) => updateField(l.key, 'label', e.target.value)} /></td>
-                <td><input type="text" style={{ minWidth: 260 }} defaultValue={l.url} onBlur={(e) => updateField(l.key, 'url', e.target.value)} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <p className="small-dim" style={{ marginBottom: 12 }}>
+        <b>외부 링크</b>: Zoom 등 바깥 사이트로 이동 · <b>설명 페이지</b>: 이 안에서 글을 써서 보여줌 · <b>질문 게시판</b>: 학생이 질문 남기고 관리자가 답변 (아래 &quot;질문 게시판&quot; 탭에서 답변)
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {links.map((l) => (
+          <div key={l.key} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12 }}>
+            <div className="row" style={{ marginBottom: l.type === 'link' || l.type === 'page' ? 10 : 0 }}>
+              <span className="mono small-dim">{l.key}</span>
+              <input type="text" style={{ minWidth: 200, flex: 1 }} defaultValue={l.label} onBlur={(e) => updateField(l.key, 'label', e.target.value)} />
+              <select defaultValue={l.type} onChange={(e) => updateField(l.key, 'type', e.target.value)}>
+                {Object.entries(TYPE_LABEL).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+              </select>
+            </div>
+            {l.type === 'link' && (
+              <input type="text" placeholder="https://..." style={{ width: '100%' }} defaultValue={l.url} onBlur={(e) => updateField(l.key, 'url', e.target.value)} />
+            )}
+            {l.type === 'page' && (
+              <textarea
+                defaultValue={l.content}
+                rows={5}
+                placeholder="학생에게 보여줄 안내 내용을 입력하세요"
+                onBlur={(e) => updateField(l.key, 'content', e.target.value)}
+                style={{
+                  width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
+                  borderRadius: 7, padding: 10, fontFamily: 'inherit', fontSize: 13, lineHeight: 1.6, resize: 'vertical'
+                }}
+              />
+            )}
+            {l.type === 'board' && (
+              <p className="small-dim">질문·답변은 상단 &quot;질문 게시판&quot; 탭에서 관리합니다.</p>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -512,6 +537,79 @@ function QrPanel({ showToast }) {
                 onChange={(e) => upload(q.key, e.target.files?.[0])}
               />
             </label>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuestionsPanel({ showToast }) {
+  const [questions, setQuestions] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [drafts, setDrafts] = useState({});
+
+  const load = useCallback(() => {
+    setLoadError('');
+    apiCall('/api/admin/questions')
+      .then((j) => setQuestions(j.questions || []))
+      .catch((err) => setLoadError(err.message));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function answer(id) {
+    try {
+      await apiCall('/api/admin/questions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, answer: drafts[id] || '' })
+      });
+      showToast('답변을 저장했습니다');
+      load();
+    } catch (err) {
+      showToast('저장 실패: ' + err.message);
+    }
+  }
+
+  if (loadError) {
+    return (
+      <div className="panel">
+        <h2>질문 게시판</h2>
+        <div className="empty">
+          불러오지 못했습니다: {loadError}
+          <div style={{ marginTop: 10 }}><button className="btn small ghost" onClick={load}>다시 시도</button></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!questions) return <div className="panel"><div className="empty">불러오는 중…</div></div>;
+
+  return (
+    <div className="panel">
+      <h2>질문 게시판 ({questions.length}건)</h2>
+      {questions.length === 0 && <div className="empty">등록된 질문이 없습니다.</div>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {questions.map((q) => (
+          <div key={q.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12 }}>
+            <div style={{ fontSize: 12.5, marginBottom: 6 }}>
+              <b>{q.student_name || '익명'}</b>
+              {q.student_id && <span className="small-dim"> · ID {q.student_id}</span>}
+              <span className="small-dim" style={{ marginLeft: 8 }}>{new Date(q.created_at).toLocaleString('ko-KR')}</span>
+            </div>
+            <div style={{ fontSize: 13.5, whiteSpace: 'pre-wrap', marginBottom: 10 }}>{q.question}</div>
+            <textarea
+              defaultValue={q.answer || ''}
+              placeholder="답변을 입력하세요"
+              rows={3}
+              onChange={(e) => setDrafts((d) => ({ ...d, [q.id]: e.target.value }))}
+              style={{
+                width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
+                borderRadius: 7, padding: 8, fontFamily: 'inherit', fontSize: 13, lineHeight: 1.6, resize: 'vertical', marginBottom: 8
+              }}
+            />
+            <button className="btn small" onClick={() => answer(q.id)}>답변 저장</button>
           </div>
         ))}
       </div>
