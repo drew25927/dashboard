@@ -193,9 +193,9 @@ export default async function StudentPage({ searchParams }) {
               </tbody>
             </table>
           </div>
-          <div className="foot">데이터 마지막 업데이트: {new Date().toLocaleString('ko-KR')}</div>
         </div>
       </div>
+      <div className="foot">데이터 마지막 업데이트: {new Date().toLocaleString('ko-KR')}</div>
     </div>
   );
 }
