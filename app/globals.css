@@ -37,16 +37,19 @@ button, select, input { font-family: inherit; font-size: inherit; }
 .page.wide { max-width: 900px; }
 .page.split-page { max-width: 880px; }
 
-.split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
 .split-col { display: flex; flex-direction: column; gap: 0; min-width: 0; }
 @media (max-width: 760px) {
   .split { grid-template-columns: 1fr; }
+  .split-col { height: auto !important; }
+  .notice-box { flex: none !important; }
 }
 
 .notice-box {
   background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent);
   border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow);
   font-size: 12.5px; line-height: 1.7; color: var(--text); white-space: pre-wrap;
+  flex: 1; overflow-y: auto;
 }
 
 .table-wrap.tall { max-height: 480px; }
