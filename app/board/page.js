@@ -81,7 +81,7 @@ function BoardInner() {
             <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: q.answer ? 8 : 0 }}>Q. {q.question}</div>
             {q.answer ? (
               <div style={{ background: 'var(--accent-dim)', borderLeft: '3px solid var(--accent)', borderRadius: 6, padding: '8px 10px', fontSize: 13, whiteSpace: 'pre-wrap' }}>
-                <span className="small-dim" style={{ display: 'block', marginBottom: 4, color: 'var(--accent-ink)' }}>운영사무국 답변</span>
+                <span className="small-dim" style={{ display: 'block', marginBottom: 4, color: 'var(--accent-ink)' }}>관리자 답변</span>
                 {q.answer}
               </div>
             ) : (
@@ -128,7 +128,7 @@ function BoardInner() {
             <div style={{ fontSize: 13.5, whiteSpace: 'pre-wrap', marginBottom: q.answer ? 8 : 0 }}>{q.question}</div>
             {q.answer ? (
               <div style={{ background: 'var(--accent-dim)', borderLeft: '3px solid var(--accent)', borderRadius: 6, padding: '8px 10px', fontSize: 13, whiteSpace: 'pre-wrap' }}>
-                <span className="small-dim" style={{ display: 'block', marginBottom: 4, color: 'var(--accent-ink)' }}>운영사무국 답변</span>
+                <span className="small-dim" style={{ display: 'block', marginBottom: 4, color: 'var(--accent-ink)' }}>관리자 답변</span>
                 {q.answer}
               </div>
             ) : (
