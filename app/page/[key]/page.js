@@ -26,7 +26,7 @@ export default async function ContentPage({ params, searchParams }) {
     <div className="page">
       <div className="topbar">
         <span className="badge-mode">안내</span>
-        {studentId && <a href={'/?id=' + studentId}>← 내 출결 현황으로</a>}
+        {studentId && <a href={'/id=' + studentId}>← 내 출결 현황으로</a>}
       </div>
       <div className="banner"><div><h1>{settings.courseTitle}</h1><div className="sub">{link.label}</div></div></div>
       <div className="panel">

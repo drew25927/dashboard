@@ -764,7 +764,7 @@ function OverviewPanel({ students, sessions, attendance, studentPageUrl, showToa
               const mine = attendance.filter((a) => a.student_id === String(st.id));
               const stat = computeStats(sessions, mine);
               const lb = STATUS_LABEL[stat.status];
-              const link = studentPageUrl + '/?id=' + st.id;
+              const link = studentPageUrl + '/id=' + st.id;
               return (
                 <tr key={st.id}>
                   <td className="mono">{st.id}</td>
