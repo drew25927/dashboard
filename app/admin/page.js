@@ -89,7 +89,7 @@ export default function AdminPage() {
       <div className="hint">💡 여기서 저장하면 학생용 페이지에 <b>즉시 반영</b>됩니다 (별도 갱신 요청 필요 없음).</div>
 
       <div className="tabs">
-        {[['attend', '출석체크'], ['students', '교육생 명단'], ['sessions', '회차 일정'], ['links', '링크 설정'], ['admins', '관리자 계정'], ['overview', '전체 현황']].map(([k, label]) => (
+        {[['attend', '출석체크'], ['students', '교육생 명단'], ['sessions', '회차 일정'], ['notice', '공지사항'], ['links', '링크 설정'], ['admins', '관리자 계정'], ['overview', '전체 현황']].map(([k, label]) => (
           <button key={k} className={'tab-btn' + (tab === k ? ' active' : '')} onClick={() => setTab(k)}>{label}</button>
         ))}
       </div>
@@ -102,6 +102,9 @@ export default function AdminPage() {
       )}
       {tab === 'sessions' && (
         <SessionsPanel sessions={sessions} loadAll={loadAll} showToast={showToast} />
+      )}
+      {tab === 'notice' && (
+        <NoticePanel showToast={showToast} />
       )}
       {tab === 'links' && (
         <>
@@ -307,6 +310,70 @@ function SessionsPanel({ sessions, loadAll, showToast }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+function NoticePanel({ showToast }) {
+  const [content, setContent] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(() => {
+    setLoadError('');
+    apiCall('/api/admin/notice')
+      .then((j) => setContent(j.content || ''))
+      .catch((err) => setLoadError(err.message));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await apiCall('/api/admin/notice', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      });
+      showToast('저장했습니다');
+    } catch (err) {
+      showToast('저장 실패: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loadError) {
+    return (
+      <div className="panel">
+        <h2>공지사항</h2>
+        <div className="empty">
+          불러오지 못했습니다: {loadError}
+          <div style={{ marginTop: 10 }}><button className="btn small ghost" onClick={load}>다시 시도</button></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (content === null) return <div className="panel"><div className="empty">불러오는 중…</div></div>;
+
+  return (
+    <div className="panel">
+      <h2>공지사항</h2>
+      <p className="small-dim" style={{ marginBottom: 12 }}>출석 인정 기준, 유의사항 등을 자유롭게 작성하세요. 학생용 페이지 좌측 상단에 그대로 표시됩니다(줄바꿈 유지).</p>
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        rows={12}
+        style={{
+          width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
+          borderRadius: 7, padding: 10, fontFamily: 'inherit', fontSize: 13, lineHeight: 1.6, resize: 'vertical'
+        }}
+      />
+      <div className="row" style={{ marginTop: 12 }}>
+        <button className="btn" onClick={save} disabled={saving}>{saving ? '저장 중…' : '저장'}</button>
       </div>
     </div>
   );

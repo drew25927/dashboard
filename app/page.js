@@ -16,12 +16,13 @@ function pct(x) {
 
 async function getStudentData(id) {
   const db = supabaseAdmin();
-  const [{ data: student }, { data: sessions }, { data: attendanceRows }, { data: links }, { data: qrCodes }] = await Promise.all([
+  const [{ data: student }, { data: sessions }, { data: attendanceRows }, { data: links }, { data: qrCodes }, { data: noticeRow }] = await Promise.all([
     db.from('students').select('*').eq('id', id).maybeSingle(),
     db.from('sessions').select('*').order('n'),
     db.from('attendance').select('*').eq('student_id', id),
     db.from('links').select('*'),
-    db.from('qr_codes').select('*')
+    db.from('qr_codes').select('*'),
+    db.from('notice').select('*').eq('id', 'main').maybeSingle()
   ]);
 
   if (!student) return null;
@@ -44,7 +45,7 @@ async function getStudentData(id) {
   const linksByKey = new Map((links || []).map((l) => [l.key, l]));
   const sortedLinks = BUTTON_ORDER.map((key) => linksByKey.get(key)).filter(Boolean);
 
-  return { student, stats, rows, links: sortedLinks, qrCodes: qrCodes || [] };
+  return { student, stats, rows, links: sortedLinks, qrCodes: qrCodes || [], notice: noticeRow?.content || '' };
 }
 
 function fmtDate(d) {
@@ -82,14 +83,14 @@ export default async function StudentPage({ searchParams }) {
     );
   }
 
-  const { student, stats, rows, links, qrCodes } = data;
+  const { student, stats, rows, links, qrCodes, notice } = data;
   const qrByKey = new Map(qrCodes.map((q) => [q.key, q]));
   const attendanceQr = qrByKey.get('attendance');
   const submitQr = qrByKey.get('submit');
   const lb = STATUS_LABEL[stats.status];
 
   return (
-    <div className="page">
+    <div className="page split-page">
       <div className="banner">
         <div>
           <h1>{COURSE_TITLE} 출결 현황판</h1>
@@ -97,89 +98,99 @@ export default async function StudentPage({ searchParams }) {
         </div>
       </div>
 
-      <div className="grid2">
-        <div className="card">
-          <div className="lbl">이름</div>
-          <div className="val">{student.name || '(미입력)'}</div>
-        </div>
-        <div className="card">
-          <div className="lbl">고유ID</div>
-          <div className="val">{student.id}</div>
-        </div>
-      </div>
+      <div className="split">
+        <div className="split-col">
+          <div className="grid2">
+            <div className="card">
+              <div className="lbl">이름</div>
+              <div className="val">{student.name || '(미입력)'}</div>
+            </div>
+            <div className="card">
+              <div className="lbl">고유ID</div>
+              <div className="val">{student.id}</div>
+            </div>
+          </div>
 
-      <div className="buttons">
-        {links.map((l) => (
-          <a key={l.key} className={'btn-tile' + (BUTTON_STYLE[l.key] ? ' ' + BUTTON_STYLE[l.key] : '')} href={l.url}>{l.label}</a>
-        ))}
-      </div>
+          {notice && (
+            <div className="notice-box">{notice}</div>
+          )}
 
-      <div className="qr-row">
-        <div className="qr">
-          {attendanceQr?.image_url
-            ? <img src={attendanceQr.image_url} alt="출석체크 QR" style={{ width: 60, height: 60, objectFit: 'contain', margin: '0 auto 6px' }} />
-            : <div className="box" />}
-          <div className="cap">출석체크 QR<br />회차마다 갱신</div>
-        </div>
-        <div className="qr">
-          {submitQr?.image_url
-            ? <img src={submitQr.image_url} alt="만족도 조사 QR" style={{ width: 60, height: 60, objectFit: 'contain', margin: '0 auto 6px' }} />
-            : <div className="box" />}
-          <div className="cap">만족도 조사 QR<br />회차 종료 후 제출</div>
-        </div>
-      </div>
+          <div className="buttons">
+            {links.map((l) => (
+              <a key={l.key} className={'btn-tile' + (BUTTON_STYLE[l.key] ? ' ' + BUTTON_STYLE[l.key] : '')} href={l.url}>{l.label}</a>
+            ))}
+          </div>
 
-      <div className="stat-grid">
-        <div className="stat">
-          <div className="lbl">진행 회차</div>
-          <div className="val">{stats.doneCount} / {stats.totalSessions}</div>
+          <div className="qr-row">
+            <div className="qr">
+              {attendanceQr?.image_url
+                ? <img src={attendanceQr.image_url} alt="출석체크 QR" style={{ width: 60, height: 60, objectFit: 'contain', margin: '0 auto 6px' }} />
+                : <div className="box" />}
+              <div className="cap">출석체크 QR<br />회차마다 갱신</div>
+            </div>
+            <div className="qr">
+              {submitQr?.image_url
+                ? <img src={submitQr.image_url} alt="만족도 조사 QR" style={{ width: 60, height: 60, objectFit: 'contain', margin: '0 auto 6px' }} />
+                : <div className="box" />}
+              <div className="cap">만족도 조사 QR<br />회차 종료 후 제출</div>
+            </div>
+          </div>
         </div>
-        <div className="stat">
-          <div className="lbl">개인 출석</div>
-          <div className="val">{stats.attendedCount} / {stats.totalSessions}</div>
-        </div>
-        <div className="stat">
-          <div className="lbl">현재 출석률</div>
-          <div className="val">{pct(stats.attendanceRate)}</div>
-        </div>
-      </div>
 
-      <div className="grid2">
-        <div className="card">
-          <div className="lbl">누적 인정시간</div>
-          <div className="val">{h(stats.recognizedHours)} / {h(stats.completionHours)}</div>
-          <span className={'badge-status ' + lb.cls}>{lb.icon} {lb.text}</span>
-        </div>
-        <div className="card">
-          <div className="lbl">수료까지 남은시간</div>
-          <div className="val">{h(stats.stillNeeded)}</div>
-          <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>결석 허용 여유 {h(stats.slack)}</div>
-        </div>
-      </div>
+        <div className="split-col">
+          <div className="stat-grid">
+            <div className="stat">
+              <div className="lbl">진행 회차</div>
+              <div className="val">{stats.doneCount} / {stats.totalSessions}</div>
+            </div>
+            <div className="stat">
+              <div className="lbl">개인 출석</div>
+              <div className="val">{stats.attendedCount} / {stats.totalSessions}</div>
+            </div>
+            <div className="stat">
+              <div className="lbl">현재 출석률</div>
+              <div className="val">{pct(stats.attendanceRate)}</div>
+            </div>
+          </div>
 
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr><th>회차</th><th>일자</th><th>구분</th><th>출석</th><th>인정</th></tr>
-          </thead>
-          <tbody>
-            {rows.map((r) =>
-              !r.done ? (
-                <tr className="future" key={r.n}>
-                  <td>{r.n}</td><td>{fmtDate(r.date)}</td><td>{r.type}</td><td>-</td><td>-</td>
-                </tr>
-              ) : (
-                <tr key={r.n}>
-                  <td>{r.n}</td><td>{fmtDate(r.date)}</td><td>{r.type}</td>
-                  <td className={r.status === '출석' ? 'att-ok' : 'att-no'}>{r.status || '미입력'}</td>
-                  <td>{h(r.recognizedHours)}</td>
-                </tr>
-              )
-            )}
-          </tbody>
-        </table>
+          <div className="grid2">
+            <div className="card">
+              <div className="lbl">누적 인정시간</div>
+              <div className="val">{h(stats.recognizedHours)} / {h(stats.completionHours)}</div>
+              <span className={'badge-status ' + lb.cls}>{lb.icon} {lb.text}</span>
+            </div>
+            <div className="card">
+              <div className="lbl">수료까지 남은시간</div>
+              <div className="val">{h(stats.stillNeeded)}</div>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>결석 허용 여유 {h(stats.slack)}</div>
+            </div>
+          </div>
+
+          <div className="table-wrap tall">
+            <table>
+              <thead>
+                <tr><th>회차</th><th>일자</th><th>구분</th><th>출석</th><th>인정</th></tr>
+              </thead>
+              <tbody>
+                {rows.map((r) =>
+                  !r.done ? (
+                    <tr className="future" key={r.n}>
+                      <td>{r.n}</td><td>{fmtDate(r.date)}</td><td>{r.type}</td><td>-</td><td>-</td>
+                    </tr>
+                  ) : (
+                    <tr key={r.n}>
+                      <td>{r.n}</td><td>{fmtDate(r.date)}</td><td>{r.type}</td>
+                      <td className={r.status === '출석' ? 'att-ok' : 'att-no'}>{r.status || '미입력'}</td>
+                      <td>{h(r.recognizedHours)}</td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="foot">데이터 마지막 업데이트: {new Date().toLocaleString('ko-KR')}</div>
+        </div>
       </div>
-      <div className="foot">데이터 마지막 업데이트: {new Date().toLocaleString('ko-KR')}</div>
     </div>
   );
 }

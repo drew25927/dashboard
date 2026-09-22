@@ -70,6 +70,24 @@ insert into qr_codes (key, label, image_url) values
   ('submit', '만족도 조사 QR', null)
 on conflict (key) do nothing;
 
+-- 학생용 페이지 상단 공지사항(출석 인정 기준 등). 항상 id='main' 한 행만 사용.
+create table if not exists notice (
+  id text primary key default 'main',
+  content text not null default ''
+);
+alter table notice enable row level security;
+
+insert into notice (id, content) values (
+  'main',
+  '[온라인 강의 출석체크]
+1단계: QR 제출 + 2단계: ZOOM 캠 활성화 + 3단계: 만족도 조사(목요일)
+3단계 요건이 모두 충족되어야 최종 인정
+
+[오프라인 강의 출석체크]
+1단계: 강의실 입구 수기 출석부 서명 + 2단계: 당일 현장 QR 제출 + 3단계: 종료 후 만족도 조사
+3단계 요건이 모두 충족되어야 최종 인정'
+) on conflict (id) do nothing;
+
 -- 16회차 일정 시드 (계획서 기준, 필요하면 나중에 관리자 화면에서 수정 가능)
 insert into sessions (n, date, type, hours, topic) values
   (1,  '2026-10-06', '온라인',   2, '멀티 AI 영상툴 심화 비교'),

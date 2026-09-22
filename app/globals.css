@@ -35,6 +35,21 @@ button, select, input { font-family: inherit; font-size: inherit; }
 
 .page { max-width: 480px; margin: 0 auto; padding: 24px 16px 60px; }
 .page.wide { max-width: 900px; }
+.page.split-page { max-width: 880px; }
+
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.split-col { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+@media (max-width: 760px) {
+  .split { grid-template-columns: 1fr; }
+}
+
+.notice-box {
+  background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow);
+  font-size: 12.5px; line-height: 1.7; color: var(--text); white-space: pre-wrap;
+}
+
+.table-wrap.tall { max-height: 480px; }
 
 .banner {
   background: linear-gradient(135deg, var(--accent-ink), var(--accent)); color: #fff;
