@@ -104,7 +104,10 @@ export default function AdminPage() {
         <SessionsPanel sessions={sessions} loadAll={loadAll} showToast={showToast} />
       )}
       {tab === 'links' && (
-        <LinksPanel showToast={showToast} />
+        <>
+          <LinksPanel showToast={showToast} />
+          <QrPanel showToast={showToast} />
+        </>
       )}
       {tab === 'admins' && (
         <AdminsPanel me={me} showToast={showToast} />
@@ -365,6 +368,85 @@ function LinksPanel({ showToast }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+function QrPanel({ showToast }) {
+  const [qrCodes, setQrCodes] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [uploading, setUploading] = useState({});
+
+  const load = useCallback(() => {
+    setLoadError('');
+    apiCall('/api/admin/qrcodes')
+      .then((j) => setQrCodes(j.qrCodes || []))
+      .catch((err) => setLoadError(err.message));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function upload(key, file) {
+    if (!file) return;
+    setUploading((u) => ({ ...u, [key]: true }));
+    try {
+      const form = new FormData();
+      form.append('key', key);
+      form.append('file', file);
+      const res = await fetch('/api/admin/qrcodes', { method: 'POST', body: form });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || '업로드 실패');
+      showToast('이미지를 업로드했습니다');
+      load();
+    } catch (err) {
+      showToast('업로드 실패: ' + err.message);
+    } finally {
+      setUploading((u) => ({ ...u, [key]: false }));
+    }
+  }
+
+  if (loadError) {
+    return (
+      <div className="panel">
+        <h2>QR 코드 이미지</h2>
+        <div className="empty">
+          불러오지 못했습니다: {loadError}
+          <div style={{ marginTop: 10 }}><button className="btn small ghost" onClick={load}>다시 시도</button></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!qrCodes) return <div className="panel"><div className="empty">불러오는 중…</div></div>;
+
+  return (
+    <div className="panel">
+      <h2>QR 코드 이미지</h2>
+      <div className="row" style={{ alignItems: 'flex-start', gap: 20 }}>
+        {qrCodes.map((q) => (
+          <div key={q.key} style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+            <div style={{
+              width: 120, height: 120, border: '1px solid var(--border)', borderRadius: 8,
+              background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
+            }}>
+              {q.image_url
+                ? <img src={q.image_url} alt={q.label} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                : <span className="small-dim">이미지 없음</span>}
+            </div>
+            <div className="small-dim">{q.label}</div>
+            <label className="btn small ghost" style={{ cursor: 'pointer' }}>
+              {uploading[q.key] ? '업로드 중…' : (q.image_url ? '이미지 교체' : '이미지 업로드')}
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                disabled={uploading[q.key]}
+                onChange={(e) => upload(q.key, e.target.files?.[0])}
+              />
+            </label>
+          </div>
+        ))}
       </div>
     </div>
   );

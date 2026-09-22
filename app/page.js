@@ -16,11 +16,12 @@ function pct(x) {
 
 async function getStudentData(id) {
   const db = supabaseAdmin();
-  const [{ data: student }, { data: sessions }, { data: attendanceRows }, { data: links }] = await Promise.all([
+  const [{ data: student }, { data: sessions }, { data: attendanceRows }, { data: links }, { data: qrCodes }] = await Promise.all([
     db.from('students').select('*').eq('id', id).maybeSingle(),
     db.from('sessions').select('*').order('n'),
     db.from('attendance').select('*').eq('student_id', id),
-    db.from('links').select('*')
+    db.from('links').select('*'),
+    db.from('qr_codes').select('*')
   ]);
 
   if (!student) return null;
@@ -43,7 +44,7 @@ async function getStudentData(id) {
   const linksByKey = new Map((links || []).map((l) => [l.key, l]));
   const sortedLinks = BUTTON_ORDER.map((key) => linksByKey.get(key)).filter(Boolean);
 
-  return { student, stats, rows, links: sortedLinks };
+  return { student, stats, rows, links: sortedLinks, qrCodes: qrCodes || [] };
 }
 
 function fmtDate(d) {
@@ -81,7 +82,10 @@ export default async function StudentPage({ searchParams }) {
     );
   }
 
-  const { student, stats, rows, links } = data;
+  const { student, stats, rows, links, qrCodes } = data;
+  const qrByKey = new Map(qrCodes.map((q) => [q.key, q]));
+  const attendanceQr = qrByKey.get('attendance');
+  const submitQr = qrByKey.get('submit');
   const lb = STATUS_LABEL[stats.status];
 
   return (
@@ -112,11 +116,15 @@ export default async function StudentPage({ searchParams }) {
 
       <div className="qr-row">
         <div className="qr">
-          <div className="box" />
+          {attendanceQr?.image_url
+            ? <img src={attendanceQr.image_url} alt="출석체크 QR" style={{ width: 60, height: 60, objectFit: 'contain', margin: '0 auto 6px' }} />
+            : <div className="box" />}
           <div className="cap">출석체크 QR<br />회차마다 갱신</div>
         </div>
         <div className="qr">
-          <div className="box" />
+          {submitQr?.image_url
+            ? <img src={submitQr.image_url} alt="결과물 제출 QR" style={{ width: 60, height: 60, objectFit: 'contain', margin: '0 auto 6px' }} />
+            : <div className="box" />}
           <div className="cap">결과물 제출 QR<br />클릭 시 폼 이동</div>
         </div>
       </div>
