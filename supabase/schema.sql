@@ -67,7 +67,7 @@ alter table qr_codes enable row level security;
 
 insert into qr_codes (key, label, image_url) values
   ('attendance', '출석체크 QR', null),
-  ('submit', '결과물 제출 QR', null)
+  ('submit', '만족도 조사 QR', null)
 on conflict (key) do nothing;
 
 -- 16회차 일정 시드 (계획서 기준, 필요하면 나중에 관리자 화면에서 수정 가능)

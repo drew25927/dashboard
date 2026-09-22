@@ -123,9 +123,9 @@ export default async function StudentPage({ searchParams }) {
         </div>
         <div className="qr">
           {submitQr?.image_url
-            ? <img src={submitQr.image_url} alt="결과물 제출 QR" style={{ width: 60, height: 60, objectFit: 'contain', margin: '0 auto 6px' }} />
+            ? <img src={submitQr.image_url} alt="만족도 조사 QR" style={{ width: 60, height: 60, objectFit: 'contain', margin: '0 auto 6px' }} />
             : <div className="box" />}
-          <div className="cap">결과물 제출 QR<br />클릭 시 폼 이동</div>
+          <div className="cap">만족도 조사 QR<br />회차 종료 후 제출</div>
         </div>
       </div>
 
