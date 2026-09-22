@@ -311,11 +311,16 @@ function SessionsPanel({ sessions, loadAll, showToast }) {
 
 function LinksPanel({ showToast }) {
   const [links, setLinks] = useState(null);
+  const [loadError, setLoadError] = useState('');
 
-  useEffect(() => {
-    apiCall('/api/admin/links').then((j) => setLinks(j.links || [])).catch((err) => showToast('불러오기 실패: ' + err.message));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const load = useCallback(() => {
+    setLoadError('');
+    apiCall('/api/admin/links')
+      .then((j) => setLinks(j.links || []))
+      .catch((err) => setLoadError(err.message));
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   async function updateField(key, field, value) {
     try {
@@ -328,6 +333,18 @@ function LinksPanel({ showToast }) {
     } catch (err) {
       showToast('저장 실패: ' + err.message);
     }
+  }
+
+  if (loadError) {
+    return (
+      <div className="panel">
+        <h2>학생용 페이지 안내 버튼</h2>
+        <div className="empty">
+          불러오지 못했습니다: {loadError}
+          <div style={{ marginTop: 10 }}><button className="btn small ghost" onClick={load}>다시 시도</button></div>
+        </div>
+      </div>
+    );
   }
 
   if (!links) return <div className="panel"><div className="empty">불러오는 중…</div></div>;
@@ -355,13 +372,15 @@ function LinksPanel({ showToast }) {
 
 function AdminsPanel({ me, showToast }) {
   const [admins, setAdmins] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(() => {
-    apiCall('/api/admin/admins').then((j) => setAdmins(j.admins || [])).catch((err) => showToast('불러오기 실패: ' + err.message));
-  }, [showToast]);
+    setLoadError('');
+    apiCall('/api/admin/admins').then((j) => setAdmins(j.admins || [])).catch((err) => setLoadError(err.message));
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -403,11 +422,17 @@ function AdminsPanel({ me, showToast }) {
     <div className="panel">
       <h2>관리자 계정</h2>
       <p className="small-dim" style={{ marginBottom: 12 }}>이름 없이 마스터 비밀번호로 로그인하면 &quot;마스터관리자&quot;로 표시됩니다. 담당자별 계정은 아래에서 추가하세요.</p>
+      {loadError && (
+        <div className="empty" style={{ marginBottom: 12 }}>
+          불러오지 못했습니다: {loadError}
+          <div style={{ marginTop: 10 }}><button className="btn small ghost" onClick={load}>다시 시도</button></div>
+        </div>
+      )}
       <div className="table-wrap">
         <table>
           <thead><tr><th>이름</th><th>생성일</th><th></th></tr></thead>
           <tbody>
-            {admins === null && <tr><td colSpan={3} className="empty">불러오는 중…</td></tr>}
+            {admins === null && !loadError && <tr><td colSpan={3} className="empty">불러오는 중…</td></tr>}
             {admins?.length === 0 && <tr><td colSpan={3} className="empty">추가된 담당자 계정이 없습니다.</td></tr>}
             {admins?.map((a) => (
               <tr key={a.id}>
