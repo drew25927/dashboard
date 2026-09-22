@@ -28,6 +28,7 @@ export default function AdminPage() {
   const [sessions, setSessions] = useState([]);
   const [students, setStudents] = useState([]);
   const [attendance, setAttendance] = useState([]);
+  const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
   const [studentPageUrl, setStudentPageUrl] = useState('');
@@ -35,6 +36,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     setStudentPageUrl(window.location.origin);
+    fetch('/api/admin/me').then((r) => r.json()).then((j) => setMe(j.admin)).catch(() => {});
   }, []);
 
   const showToast = useCallback((msg) => {
@@ -79,7 +81,7 @@ export default function AdminPage() {
       <div className="banner">
         <div>
           <h1>{COURSE_TITLE} — 관리자</h1>
-          <div className="sub">{COURSE_SUB}</div>
+          <div className="sub">{COURSE_SUB}{me ? ' · ' + me.name + '님' : ''}</div>
         </div>
         <button className="btn ghost small" onClick={logout}>로그아웃</button>
       </div>
@@ -87,7 +89,7 @@ export default function AdminPage() {
       <div className="hint">💡 여기서 저장하면 학생용 페이지에 <b>즉시 반영</b>됩니다 (별도 갱신 요청 필요 없음).</div>
 
       <div className="tabs">
-        {[['attend', '출석체크'], ['students', '교육생 명단'], ['sessions', '회차 일정'], ['overview', '전체 현황']].map(([k, label]) => (
+        {[['attend', '출석체크'], ['students', '교육생 명단'], ['sessions', '회차 일정'], ['links', '링크 설정'], ['admins', '관리자 계정'], ['overview', '전체 현황']].map(([k, label]) => (
           <button key={k} className={'tab-btn' + (tab === k ? ' active' : '')} onClick={() => setTab(k)}>{label}</button>
         ))}
       </div>
@@ -100,6 +102,12 @@ export default function AdminPage() {
       )}
       {tab === 'sessions' && (
         <SessionsPanel sessions={sessions} loadAll={loadAll} showToast={showToast} />
+      )}
+      {tab === 'links' && (
+        <LinksPanel showToast={showToast} />
+      )}
+      {tab === 'admins' && (
+        <AdminsPanel me={me} showToast={showToast} />
       )}
       {tab === 'overview' && (
         <OverviewPanel students={students} sessions={sessions} attendance={attendance} studentPageUrl={studentPageUrl} showToast={showToast} />
@@ -297,6 +305,125 @@ function SessionsPanel({ sessions, loadAll, showToast }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function LinksPanel({ showToast }) {
+  const [links, setLinks] = useState(null);
+
+  useEffect(() => {
+    apiCall('/api/admin/links').then((j) => setLinks(j.links || [])).catch((err) => showToast('불러오기 실패: ' + err.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function updateField(key, field, value) {
+    try {
+      await apiCall('/api/admin/links', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, field, value })
+      });
+      showToast('저장됨');
+    } catch (err) {
+      showToast('저장 실패: ' + err.message);
+    }
+  }
+
+  if (!links) return <div className="panel"><div className="empty">불러오는 중…</div></div>;
+
+  return (
+    <div className="panel">
+      <h2>학생용 페이지 안내 버튼</h2>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>키</th><th>버튼 표시 문구</th><th>연결 URL</th></tr></thead>
+          <tbody>
+            {links.map((l) => (
+              <tr key={l.key}>
+                <td className="mono">{l.key}</td>
+                <td><input type="text" style={{ minWidth: 200 }} defaultValue={l.label} onBlur={(e) => updateField(l.key, 'label', e.target.value)} /></td>
+                <td><input type="text" style={{ minWidth: 260 }} defaultValue={l.url} onBlur={(e) => updateField(l.key, 'url', e.target.value)} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function AdminsPanel({ me, showToast }) {
+  const [admins, setAdmins] = useState(null);
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  const load = useCallback(() => {
+    apiCall('/api/admin/admins').then((j) => setAdmins(j.admins || [])).catch((err) => showToast('불러오기 실패: ' + err.message));
+  }, [showToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function createAdmin(e) {
+    e.preventDefault();
+    if (!name.trim() || password.length < 4) {
+      showToast('이름과 4자 이상 비밀번호를 입력해주세요');
+      return;
+    }
+    setCreating(true);
+    try {
+      await apiCall('/api/admin/admins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, password })
+      });
+      setName(''); setPassword('');
+      load();
+      showToast('관리자를 추가했습니다');
+    } catch (err) {
+      showToast('추가 실패: ' + err.message);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function removeAdmin(id) {
+    if (!confirm('이 관리자 계정을 삭제할까요?')) return;
+    try {
+      await apiCall('/api/admin/admins?id=' + encodeURIComponent(id), { method: 'DELETE' });
+      load();
+      showToast('삭제했습니다');
+    } catch (err) {
+      showToast('삭제 실패: ' + err.message);
+    }
+  }
+
+  return (
+    <div className="panel">
+      <h2>관리자 계정</h2>
+      <p className="small-dim" style={{ marginBottom: 12 }}>이름 없이 마스터 비밀번호로 로그인하면 &quot;마스터관리자&quot;로 표시됩니다. 담당자별 계정은 아래에서 추가하세요.</p>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>이름</th><th>생성일</th><th></th></tr></thead>
+          <tbody>
+            {admins === null && <tr><td colSpan={3} className="empty">불러오는 중…</td></tr>}
+            {admins?.length === 0 && <tr><td colSpan={3} className="empty">추가된 담당자 계정이 없습니다.</td></tr>}
+            {admins?.map((a) => (
+              <tr key={a.id}>
+                <td>{a.name}{me?.id === a.id ? ' (나)' : ''}</td>
+                <td className="small-dim">{new Date(a.created_at).toLocaleDateString('ko-KR')}</td>
+                <td>{me?.id !== a.id && <button className="btn small danger" onClick={() => removeAdmin(a.id)}>삭제</button>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <form onSubmit={createAdmin} className="row" style={{ marginTop: 12 }}>
+        <input type="text" placeholder="이름" value={name} onChange={(e) => setName(e.target.value)} />
+        <input type="password" placeholder="비밀번호 (4자 이상)" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <button className="btn" type="submit" disabled={creating}>{creating ? '추가 중…' : '+ 관리자 추가'}</button>
+      </form>
     </div>
   );
 }

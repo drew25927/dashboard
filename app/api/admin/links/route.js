@@ -13,30 +13,20 @@ export async function GET() {
   if (unauth) return unauth;
 
   const db = supabaseAdmin();
-  const { data, error } = await db.from('attendance').select('*');
+  const { data, error } = await db.from('links').select('*').order('key');
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ attendance: data });
+  return NextResponse.json({ links: data });
 }
 
-// body: { rows: [{ studentId, sessionN, status, recognizedHours }, ...] }
-export async function POST(req) {
+export async function PUT(req) {
   const unauth = await requireAdmin();
   if (unauth) return unauth;
 
-  const { rows } = await req.json();
-  if (!Array.isArray(rows) || !rows.length) {
-    return NextResponse.json({ error: 'rows 배열이 필요합니다.' }, { status: 400 });
-  }
-
-  const payload = rows.map((r) => ({
-    student_id: String(r.studentId),
-    session_n: Number(r.sessionN),
-    status: r.status || '',
-    recognized_hours: Number(r.recognizedHours) || 0
-  }));
+  const { key, field, value } = await req.json();
+  if (!key || !field) return NextResponse.json({ error: 'key, field가 필요합니다.' }, { status: 400 });
 
   const db = supabaseAdmin();
-  const { error } = await db.from('attendance').upsert(payload, { onConflict: 'student_id,session_n' });
+  const { error } = await db.from('links').update({ [field]: value }).eq('key', key);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

@@ -1,8 +1,11 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { computeStats, isDone, STATUS_LABEL } from '../lib/calc';
-import { COURSE_TITLE, COURSE_SUB, LINKS } from '../lib/config';
+import { COURSE_TITLE, COURSE_SUB } from '../lib/config';
 
 export const dynamic = 'force-dynamic';
+
+const BUTTON_ORDER = ['zoom', 'venue', 'office', 'submit', 'notice', 'replay'];
+const BUTTON_STYLE = { zoom: '', venue: '', office: 'alt', submit: 'alt', notice: 'warn', replay: 'alt' };
 
 function h(x) {
   return Math.round((x || 0) * 10) / 10 + 'h';
@@ -13,10 +16,11 @@ function pct(x) {
 
 async function getStudentData(id) {
   const db = supabaseAdmin();
-  const [{ data: student }, { data: sessions }, { data: attendanceRows }] = await Promise.all([
+  const [{ data: student }, { data: sessions }, { data: attendanceRows }, { data: links }] = await Promise.all([
     db.from('students').select('*').eq('id', id).maybeSingle(),
     db.from('sessions').select('*').order('n'),
-    db.from('attendance').select('*').eq('student_id', id)
+    db.from('attendance').select('*').eq('student_id', id),
+    db.from('links').select('*')
   ]);
 
   if (!student) return null;
@@ -36,7 +40,10 @@ async function getStudentData(id) {
     };
   });
 
-  return { student, stats, rows };
+  const linksByKey = new Map((links || []).map((l) => [l.key, l]));
+  const sortedLinks = BUTTON_ORDER.map((key) => linksByKey.get(key)).filter(Boolean);
+
+  return { student, stats, rows, links: sortedLinks };
 }
 
 function fmtDate(d) {
@@ -74,7 +81,7 @@ export default async function StudentPage({ searchParams }) {
     );
   }
 
-  const { student, stats, rows } = data;
+  const { student, stats, rows, links } = data;
   const lb = STATUS_LABEL[stats.status];
 
   return (
@@ -98,12 +105,9 @@ export default async function StudentPage({ searchParams }) {
       </div>
 
       <div className="buttons">
-        <a className="btn-tile" href={LINKS.zoom}>온라인 강의실<br />입장(Zoom)</a>
-        <a className="btn-tile" href={LINKS.venue}>오프라인 장소<br />안내</a>
-        <a className="btn-tile alt" href={LINKS.office}>운영사무국<br />문의</a>
-        <a className="btn-tile alt" href={LINKS.submit}>결과물 제출<br />안내</a>
-        <a className="btn-tile warn" href={LINKS.notice}>공지사항 ·<br />자료실</a>
-        <a className="btn-tile alt" href={LINKS.replay}>강의 다시보기<br />(녹화본)</a>
+        {links.map((l) => (
+          <a key={l.key} className={'btn-tile' + (BUTTON_STYLE[l.key] ? ' ' + BUTTON_STYLE[l.key] : '')} href={l.url}>{l.label}</a>
+        ))}
       </div>
 
       <div className="qr-row">

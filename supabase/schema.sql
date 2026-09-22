@@ -25,11 +25,37 @@ create table if not exists attendance (
   primary key (student_id, session_n)
 );
 
+-- 담당자별 로그인 계정 (이름 + 비밀번호 해시). 최초 마스터 로그인은 ADMIN_PASSWORD 환경변수로 계속 가능.
+create table if not exists admins (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  password_hash text not null,
+  created_at timestamptz not null default now()
+);
+
+-- 학생용 페이지의 안내 버튼(Zoom, 장소 안내 등) — 관리자 화면에서 라벨/URL 수정 가능
+create table if not exists links (
+  key text primary key,
+  label text not null,
+  url text not null default '#'
+);
+
 -- RLS 활성화 + 정책 없음 = anon/public 키로는 아무것도 읽고 쓸 수 없음.
 -- 앱 서버(Next.js API 라우트)가 service_role 키로만 접근하므로 이걸로 충분히 안전합니다.
 alter table students enable row level security;
 alter table sessions enable row level security;
 alter table attendance enable row level security;
+alter table admins enable row level security;
+alter table links enable row level security;
+
+insert into links (key, label, url) values
+  ('zoom',   '온라인 강의실 입장 (Zoom)', '#'),
+  ('venue',  '오프라인 장소 안내', '#'),
+  ('office', '운영사무국 문의', '#'),
+  ('submit', '결과물 제출 안내', '#'),
+  ('notice', '공지사항 · 자료실', '#'),
+  ('replay', '강의 다시보기 (녹화본)', '#')
+on conflict (key) do nothing;
 
 -- 16회차 일정 시드 (계획서 기준, 필요하면 나중에 관리자 화면에서 수정 가능)
 insert into sessions (n, date, type, hours, topic) values

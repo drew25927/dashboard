@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,7 +16,7 @@ export default function LoginPage() {
     const res = await fetch('/api/admin/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
+      body: JSON.stringify({ name, password })
     });
     setLoading(false);
     if (res.ok) {
@@ -34,11 +35,17 @@ export default function LoginPage() {
         {error && <div className="err">{error}</div>}
         <form onSubmit={submit}>
           <input
+            type="text"
+            placeholder="이름 (마스터 로그인은 비워두세요)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+          <input
             type="password"
-            placeholder="관리자 비밀번호"
+            placeholder="비밀번호"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            autoFocus
           />
           <button className="btn" type="submit" disabled={loading}>{loading ? '확인 중…' : '로그인'}</button>
         </form>
