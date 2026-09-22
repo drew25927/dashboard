@@ -69,7 +69,7 @@ function BoardInner() {
         <span className="badge-mode">질문 게시판</span>
         {studentId && <a href={'/id=' + studentId}>← 내 출결 현황으로</a>}
       </div>
-      <div className="banner"><div><h1>{courseTitle} 질문 게시판</h1><div className="sub">운영사무국에 궁금한 점을 남겨주세요</div></div></div>
+      <div className="banner"><div><h1>{courseTitle} 질문 게시판</h1><div className="sub">관리자에게 궁금한 점을 남겨주세요</div></div></div>
 
       <div className="panel">
         <h2>자주하는 질문</h2>

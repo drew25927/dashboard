@@ -70,7 +70,7 @@ export default async function StudentDashboard({ id }) {
         <div className="state">
           <h2>고유ID를 찾을 수 없습니다</h2>
           <p>
-            <span className="mono">{id}</span> — 링크를 다시 확인해주세요. 문제가 계속되면 운영사무국에 문의해주세요.
+            <span className="mono">{id}</span> — 링크를 다시 확인해주세요. 문제가 계속되면 관리자에게 문의해주세요.
           </p>
         </div>
       </div>

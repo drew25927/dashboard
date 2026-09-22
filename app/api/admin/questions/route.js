@@ -34,7 +34,7 @@ export async function POST(req) {
   const { data, error } = await db
     .from('questions')
     .insert({
-      student_name: '운영사무국',
+      student_name: '관리자',
       question: question.trim(),
       answer: (answer || '').trim() || null,
       is_faq: true,

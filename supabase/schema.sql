@@ -68,13 +68,13 @@ alter table links enable row level security;
 insert into links (key, label, url, type, content) values
   ('zoom',   '온라인 강의실 입장 (Zoom)', '#', 'link', ''),
   ('venue',  '오프라인 장소 안내', '#', 'link', ''),
-  ('office', '운영사무국 문의', '#', 'board', ''),
+  ('office', '관리자 문의', '#', 'board', ''),
   ('submit', '결과물 제출 안내', '#', 'page', '결과물 제출 방법을 안내합니다.'),
   ('notice', '공지사항 · 자료실', '#', 'page', '공지사항과 자료실 안내입니다.'),
   ('replay', '강의 다시보기 (녹화본)', '#', 'page', '지난 강의 다시보기 방법을 안내합니다.')
 on conflict (key) do nothing;
 
--- 질문 게시판 (운영사무국 문의)
+-- 질문 게시판 (관리자 문의)
 create table if not exists questions (
   id uuid primary key default gen_random_uuid(),
   student_id text,
