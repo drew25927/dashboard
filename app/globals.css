@@ -49,7 +49,7 @@ button, select, input { font-family: inherit; font-size: inherit; }
   background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent);
   border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow);
   font-size: 12.5px; line-height: 1.7; color: var(--text); white-space: pre-wrap;
-  flex: 1; min-height: 120px; max-height: 420px; overflow-y: auto;
+  flex: 1; min-height: 120px; overflow-y: auto;
 }
 
 .table-wrap.tall { max-height: none; }
