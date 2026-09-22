@@ -3,6 +3,9 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DEFAULT_COURSE_TITLE } from '../../lib/config';
 
+function faqs(list) { return list.filter((q) => q.is_faq); }
+function asked(list) { return list.filter((q) => !q.is_faq); }
+
 export default function BoardPage() {
   return (
     <Suspense fallback={<div className="page"><div className="state"><div className="spinner" /></div></div>}>
@@ -69,6 +72,26 @@ function BoardInner() {
       <div className="banner"><div><h1>{courseTitle} 질문 게시판</h1><div className="sub">운영사무국에 궁금한 점을 남겨주세요</div></div></div>
 
       <div className="panel">
+        <h2>자주하는 질문</h2>
+        {loadError && <div className="empty">불러오지 못했습니다: {loadError}</div>}
+        {!loadError && questions === null && <div className="empty">불러오는 중…</div>}
+        {questions && faqs(questions).length === 0 && <div className="empty">등록된 자주하는 질문이 없습니다.</div>}
+        {questions && faqs(questions).map((q) => (
+          <div key={q.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: q.answer ? 8 : 0 }}>Q. {q.question}</div>
+            {q.answer ? (
+              <div style={{ background: 'var(--accent-dim)', borderLeft: '3px solid var(--accent)', borderRadius: 6, padding: '8px 10px', fontSize: 13, whiteSpace: 'pre-wrap' }}>
+                <span className="small-dim" style={{ display: 'block', marginBottom: 4, color: 'var(--accent-ink)' }}>운영사무국 답변</span>
+                {q.answer}
+              </div>
+            ) : (
+              <div className="small-dim">답변 준비중</div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="panel">
         <h2>질문 남기기</h2>
         <form onSubmit={submit}>
           <div className="row">
@@ -95,8 +118,8 @@ function BoardInner() {
         <h2>등록된 질문</h2>
         {loadError && <div className="empty">불러오지 못했습니다: {loadError}</div>}
         {!loadError && questions === null && <div className="empty">불러오는 중…</div>}
-        {questions?.length === 0 && <div className="empty">아직 등록된 질문이 없습니다.</div>}
-        {questions?.map((q) => (
+        {questions && asked(questions).length === 0 && <div className="empty">아직 등록된 질문이 없습니다.</div>}
+        {questions && asked(questions).map((q) => (
           <div key={q.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
             <div style={{ fontSize: 12.5, marginBottom: 4 }}>
               <b>{q.student_name || '익명'}</b>

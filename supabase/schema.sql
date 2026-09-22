@@ -81,6 +81,7 @@ create table if not exists questions (
   student_name text not null default '',
   question text not null,
   answer text,
+  is_faq boolean not null default false,
   created_at timestamptz not null default now(),
   answered_at timestamptz
 );

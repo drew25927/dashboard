@@ -601,6 +601,9 @@ function QuestionsPanel({ showToast }) {
   const [questions, setQuestions] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [drafts, setDrafts] = useState({});
+  const [faqQuestion, setFaqQuestion] = useState('');
+  const [faqAnswer, setFaqAnswer] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const load = useCallback(() => {
     setLoadError('');
@@ -611,17 +614,48 @@ function QuestionsPanel({ showToast }) {
 
   useEffect(() => { load(); }, [load]);
 
-  async function answer(id) {
+  async function answer(id, original) {
     try {
       await apiCall('/api/admin/questions', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, answer: drafts[id] || '' })
+        body: JSON.stringify({ id, answer: drafts[id]?.answer ?? original.answer ?? '', question: drafts[id]?.question })
       });
-      showToast('답변을 저장했습니다');
+      showToast('저장했습니다');
       load();
     } catch (err) {
       showToast('저장 실패: ' + err.message);
+    }
+  }
+
+  async function createFaq(e) {
+    e.preventDefault();
+    if (!faqQuestion.trim()) { showToast('질문 내용을 입력해주세요'); return; }
+    setCreating(true);
+    try {
+      await apiCall('/api/admin/questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: faqQuestion, answer: faqAnswer })
+      });
+      setFaqQuestion(''); setFaqAnswer('');
+      showToast('자주하는 질문을 추가했습니다');
+      load();
+    } catch (err) {
+      showToast('추가 실패: ' + err.message);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function remove(id) {
+    if (!confirm('삭제할까요?')) return;
+    try {
+      await apiCall('/api/admin/questions?id=' + encodeURIComponent(id), { method: 'DELETE' });
+      showToast('삭제했습니다');
+      load();
+    } catch (err) {
+      showToast('삭제 실패: ' + err.message);
     }
   }
 
@@ -639,34 +673,90 @@ function QuestionsPanel({ showToast }) {
 
   if (!questions) return <div className="panel"><div className="empty">불러오는 중…</div></div>;
 
+  const faqs = questions.filter((q) => q.is_faq);
+  const asked = questions.filter((q) => !q.is_faq);
+
+  function questionCard(q, { faq }) {
+    return (
+      <div key={q.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12 }}>
+        <div style={{ fontSize: 12.5, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+          {faq && <span className="badge-status ok">FAQ</span>}
+          <b>{q.student_name || '익명'}</b>
+          {q.student_id && <span className="small-dim">· ID {q.student_id}</span>}
+          <span className="small-dim">{new Date(q.created_at).toLocaleString('ko-KR')}</span>
+        </div>
+        {faq ? (
+          <textarea
+            defaultValue={q.question}
+            rows={2}
+            onChange={(e) => setDrafts((d) => ({ ...d, [q.id]: { ...d[q.id], question: e.target.value } }))}
+            style={{
+              width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
+              borderRadius: 7, padding: 8, fontFamily: 'inherit', fontSize: 13.5, lineHeight: 1.6, resize: 'vertical', marginBottom: 8, fontWeight: 600
+            }}
+          />
+        ) : (
+          <div style={{ fontSize: 13.5, whiteSpace: 'pre-wrap', marginBottom: 10 }}>{q.question}</div>
+        )}
+        <textarea
+          defaultValue={q.answer || ''}
+          placeholder="답변을 입력하세요"
+          rows={3}
+          onChange={(e) => setDrafts((d) => ({ ...d, [q.id]: { ...d[q.id], answer: e.target.value } }))}
+          style={{
+            width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
+            borderRadius: 7, padding: 8, fontFamily: 'inherit', fontSize: 13, lineHeight: 1.6, resize: 'vertical', marginBottom: 8
+          }}
+        />
+        <div className="row" style={{ marginBottom: 0 }}>
+          <button className="btn small" onClick={() => answer(q.id, q)}>저장</button>
+          <button className="btn small danger" onClick={() => remove(q.id)}>삭제</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="panel">
-      <h2>질문 게시판 ({questions.length}건)</h2>
-      {questions.length === 0 && <div className="empty">등록된 질문이 없습니다.</div>}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {questions.map((q) => (
-          <div key={q.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12 }}>
-            <div style={{ fontSize: 12.5, marginBottom: 6 }}>
-              <b>{q.student_name || '익명'}</b>
-              {q.student_id && <span className="small-dim"> · ID {q.student_id}</span>}
-              <span className="small-dim" style={{ marginLeft: 8 }}>{new Date(q.created_at).toLocaleString('ko-KR')}</span>
-            </div>
-            <div style={{ fontSize: 13.5, whiteSpace: 'pre-wrap', marginBottom: 10 }}>{q.question}</div>
+    <>
+      <div className="panel">
+        <h2>자주하는 질문 (FAQ) 등록</h2>
+        <p className="small-dim" style={{ marginBottom: 12 }}>미리 등록하면 학생이 질문을 남기기 전에도 게시판 상단에서 바로 볼 수 있습니다.</p>
+        <form onSubmit={createFaq}>
+          <div className="row">
+            <input type="text" placeholder="자주 묻는 질문" style={{ flex: 1, minWidth: 240 }} value={faqQuestion} onChange={(e) => setFaqQuestion(e.target.value)} />
+          </div>
+          <div className="row">
             <textarea
-              defaultValue={q.answer || ''}
-              placeholder="답변을 입력하세요"
+              placeholder="답변 (비워두면 '답변 대기중'으로 표시됩니다)"
+              value={faqAnswer}
+              onChange={(e) => setFaqAnswer(e.target.value)}
               rows={3}
-              onChange={(e) => setDrafts((d) => ({ ...d, [q.id]: e.target.value }))}
               style={{
                 width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
-                borderRadius: 7, padding: 8, fontFamily: 'inherit', fontSize: 13, lineHeight: 1.6, resize: 'vertical', marginBottom: 8
+                borderRadius: 7, padding: 10, fontFamily: 'inherit', fontSize: 13, lineHeight: 1.6, resize: 'vertical'
               }}
             />
-            <button className="btn small" onClick={() => answer(q.id)}>답변 저장</button>
           </div>
-        ))}
+          <button className="btn" type="submit" disabled={creating}>{creating ? '추가 중…' : '+ FAQ 추가'}</button>
+        </form>
       </div>
-    </div>
+
+      <div className="panel">
+        <h2>자주하는 질문 목록 ({faqs.length}건)</h2>
+        {faqs.length === 0 && <div className="empty">등록된 FAQ가 없습니다.</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {faqs.map((q) => questionCard(q, { faq: true }))}
+        </div>
+      </div>
+
+      <div className="panel">
+        <h2>학생 질문 ({asked.length}건)</h2>
+        {asked.length === 0 && <div className="empty">등록된 질문이 없습니다.</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {asked.map((q) => questionCard(q, { faq: false }))}
+        </div>
+      </div>
+    </>
   );
 }
 
