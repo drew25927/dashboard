@@ -1,7 +1,7 @@
 'use client';
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { COURSE_TITLE } from '../../lib/config';
+import { DEFAULT_COURSE_TITLE } from '../../lib/config';
 
 export default function BoardPage() {
   return (
@@ -21,6 +21,7 @@ function BoardInner() {
   const [question, setQuestion] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [courseTitle, setCourseTitle] = useState(DEFAULT_COURSE_TITLE);
 
   useEffect(() => {
     fetch('/api/questions')
@@ -30,6 +31,11 @@ function BoardInner() {
         setQuestions(j.questions || []);
       })
       .catch((err) => setLoadError(err.message));
+
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((j) => { if (j.courseTitle) setCourseTitle(j.courseTitle); })
+      .catch(() => {});
   }, []);
 
   async function submit(e) {
@@ -60,7 +66,7 @@ function BoardInner() {
         <span className="badge-mode">질문 게시판</span>
         {studentId && <a href={'/?id=' + studentId}>← 내 출결 현황으로</a>}
       </div>
-      <div className="banner"><div><h1>{COURSE_TITLE} 질문 게시판</h1><div className="sub">운영사무국에 궁금한 점을 남겨주세요</div></div></div>
+      <div className="banner"><div><h1>{courseTitle} 질문 게시판</h1><div className="sub">운영사무국에 궁금한 점을 남겨주세요</div></div></div>
 
       <div className="panel">
         <h2>질문 남기기</h2>

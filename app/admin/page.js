@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { computeStats, isDone, recognizedHoursFor, STATUS_LABEL } from '../../lib/calc';
-import { COURSE_TITLE, COURSE_SUB } from '../../lib/config';
+import { DEFAULT_COURSE_TITLE, DEFAULT_COURSE_SUB } from '../../lib/config';
 
 const STATUS_OPTIONS = ['출석', '결석', '지각', '조퇴'];
 
@@ -32,12 +32,20 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
   const [studentPageUrl, setStudentPageUrl] = useState('');
+  const [settings, setSettings] = useState({ courseTitle: DEFAULT_COURSE_TITLE, courseSub: DEFAULT_COURSE_SUB });
   const router = useRouter();
+
+  const loadSettings = useCallback(() => {
+    apiCall('/api/admin/settings')
+      .then((j) => setSettings({ courseTitle: j.courseTitle || DEFAULT_COURSE_TITLE, courseSub: j.courseSub || DEFAULT_COURSE_SUB }))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setStudentPageUrl(window.location.origin);
     fetch('/api/admin/me').then((r) => r.json()).then((j) => setMe(j.admin)).catch(() => {});
-  }, []);
+    loadSettings();
+  }, [loadSettings]);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -80,8 +88,8 @@ export default function AdminPage() {
     <div className="page wide">
       <div className="banner">
         <div>
-          <h1>{COURSE_TITLE} — 관리자</h1>
-          <div className="sub">{COURSE_SUB}{me ? ' · ' + me.name + '님' : ''}</div>
+          <h1>{settings.courseTitle} — 관리자</h1>
+          <div className="sub">{settings.courseSub}{me ? ' · ' + me.name + '님' : ''}</div>
         </div>
         <button className="btn ghost small" onClick={logout}>로그아웃</button>
       </div>
@@ -89,7 +97,7 @@ export default function AdminPage() {
       <div className="hint">💡 여기서 저장하면 학생용 페이지에 <b>즉시 반영</b>됩니다 (별도 갱신 요청 필요 없음).</div>
 
       <div className="tabs">
-        {[['attend', '출석체크'], ['students', '교육생 명단'], ['sessions', '회차 일정'], ['notice', '공지사항'], ['links', '링크 설정'], ['questions', '질문 게시판'], ['admins', '관리자 계정'], ['overview', '전체 현황']].map(([k, label]) => (
+        {[['attend', '출석체크'], ['students', '교육생 명단'], ['sessions', '회차 일정'], ['course', '과정 정보'], ['notice', '공지사항'], ['links', '링크 설정'], ['questions', '질문 게시판'], ['admins', '관리자 계정'], ['overview', '전체 현황']].map(([k, label]) => (
           <button key={k} className={'tab-btn' + (tab === k ? ' active' : '')} onClick={() => setTab(k)}>{label}</button>
         ))}
       </div>
@@ -102,6 +110,9 @@ export default function AdminPage() {
       )}
       {tab === 'sessions' && (
         <SessionsPanel sessions={sessions} loadAll={loadAll} showToast={showToast} />
+      )}
+      {tab === 'course' && (
+        <CoursePanel settings={settings} loadSettings={loadSettings} showToast={showToast} />
       )}
       {tab === 'notice' && (
         <NoticePanel showToast={showToast} />
@@ -314,6 +325,41 @@ function SessionsPanel({ sessions, loadAll, showToast }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function CoursePanel({ settings, loadSettings, showToast }) {
+  const [title, setTitle] = useState(settings.courseTitle);
+  const [sub, setSub] = useState(settings.courseSub);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { setTitle(settings.courseTitle); setSub(settings.courseSub); }, [settings]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await apiCall('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseTitle: title, courseSub: sub })
+      });
+      loadSettings();
+      showToast('저장했습니다');
+    } catch (err) {
+      showToast('저장 실패: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="panel">
+      <h2>과정 정보</h2>
+      <p className="small-dim" style={{ marginBottom: 12 }}>학생용 페이지·질문 게시판·설명 페이지 상단 배너에 표시되는 제목/부제입니다.</p>
+      <div className="row"><label style={{ minWidth: 60 }} className="small-dim">제목</label><input type="text" style={{ flex: 1, minWidth: 240 }} value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+      <div className="row"><label style={{ minWidth: 60 }} className="small-dim">부제</label><input type="text" style={{ flex: 1, minWidth: 240 }} value={sub} onChange={(e) => setSub(e.target.value)} /></div>
+      <button className="btn" onClick={save} disabled={saving}>{saving ? '저장 중…' : '저장'}</button>
     </div>
   );
 }

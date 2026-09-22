@@ -25,6 +25,20 @@ create table if not exists attendance (
   primary key (student_id, session_n)
 );
 
+-- 과정명/부제 등 전역 설정 (관리자 화면 "과정 정보" 탭에서 수정)
+create table if not exists settings (
+  id text primary key default 'main',
+  course_title text not null default '',
+  course_sub text not null default ''
+);
+alter table settings enable row level security;
+
+insert into settings (id, course_title, course_sub) values (
+  'main',
+  'AI 영상 제작 전문가 과정',
+  '충북 AI 미디어 전문가 양성 프로그램 · 2026.10.6 ~ 11.28'
+) on conflict (id) do nothing;
+
 -- 담당자별 로그인 계정 (이름 + 비밀번호 해시). 최초 마스터 로그인은 ADMIN_PASSWORD 환경변수로 계속 가능.
 create table if not exists admins (
   id uuid primary key default gen_random_uuid(),

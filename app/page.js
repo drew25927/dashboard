@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { computeStats, isDone, STATUS_LABEL } from '../lib/calc';
-import { COURSE_TITLE, COURSE_SUB } from '../lib/config';
+import { getSettings } from '../lib/settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,7 +68,7 @@ export default async function StudentPage({ searchParams }) {
     );
   }
 
-  const data = await getStudentData(id);
+  const [data, settings] = await Promise.all([getStudentData(id), getSettings()]);
 
   if (!data) {
     return (
@@ -93,8 +93,8 @@ export default async function StudentPage({ searchParams }) {
     <div className="page split-page">
       <div className="banner">
         <div>
-          <h1>{COURSE_TITLE} 출결 현황판</h1>
-          <div className="sub">{COURSE_SUB}</div>
+          <h1>{settings.courseTitle} 출결 현황판</h1>
+          <div className="sub">{settings.courseSub}</div>
         </div>
       </div>
 
