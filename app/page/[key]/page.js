@@ -30,7 +30,14 @@ export default async function ContentPage({ params, searchParams }) {
       </div>
       <div className="banner"><div><h1>{settings.courseTitle}</h1><div className="sub">{link.label}</div></div></div>
       <div className="panel">
-        <div style={{ whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.8 }}>{link.content || '아직 작성된 내용이 없습니다.'}</div>
+        <div style={{ whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.8, marginBottom: link.url && link.url !== '#' ? 16 : 0 }}>
+          {link.content || '아직 작성된 내용이 없습니다.'}
+        </div>
+        {link.url && link.url !== '#' && (
+          <a className="btn" href={link.url} target="_blank" rel="noreferrer" style={{ display: 'inline-block', textDecoration: 'none' }}>
+            바로가기 →
+          </a>
+        )}
       </div>
     </div>
   );

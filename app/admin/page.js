@@ -526,16 +526,23 @@ function LinksPanel({ showToast }) {
               <input type="text" placeholder="https://..." style={{ width: '100%' }} defaultValue={l.url} onBlur={(e) => updateField(l.key, 'url', e.target.value)} />
             )}
             {l.type === 'page' && (
-              <textarea
-                defaultValue={l.content}
-                rows={5}
-                placeholder="학생에게 보여줄 안내 내용을 입력하세요"
-                onBlur={(e) => updateField(l.key, 'content', e.target.value)}
-                style={{
-                  width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
-                  borderRadius: 7, padding: 10, fontFamily: 'inherit', fontSize: 13, lineHeight: 1.6, resize: 'vertical'
-                }}
-              />
+              <>
+                <textarea
+                  defaultValue={l.content}
+                  rows={5}
+                  placeholder="학생에게 보여줄 안내 내용을 입력하세요"
+                  onBlur={(e) => updateField(l.key, 'content', e.target.value)}
+                  style={{
+                    width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
+                    borderRadius: 7, padding: 10, fontFamily: 'inherit', fontSize: 13, lineHeight: 1.6, resize: 'vertical', marginBottom: 8
+                  }}
+                />
+                <input
+                  type="text" placeholder="바로가기 링크 (선택, 예: 제출용 구글폼 URL)" style={{ width: '100%' }}
+                  defaultValue={l.url === '#' ? '' : l.url}
+                  onBlur={(e) => updateField(l.key, 'url', e.target.value || '#')}
+                />
+              </>
             )}
             {l.type === 'board' && (
               <p className="small-dim">질문·답변은 상단 &quot;질문 게시판&quot; 탭에서 관리합니다.</p>
