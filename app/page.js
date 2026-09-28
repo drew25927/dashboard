@@ -1,10 +1,27 @@
+import { redirect } from 'next/navigation';
 import StudentDashboard from './_components/StudentDashboard';
+import { getAuthorizedAdmin } from '../lib/adminAuth';
+import { getAuthorizedStudent } from '../lib/studentAuth';
 
 export const dynamic = 'force-dynamic';
 
-// 새 링크 형식은 /id=101 (경로 방식)입니다. 이전에 배포된 ?id=101 형식 링크도
-// 계속 동작하도록 쿼리 파라미터를 하위 호환으로 지원합니다.
+// 접근 규칙:
+// 1) 관리자로 로그인한 상태 + ?id= 가 있으면 → 해당 학생 화면 미리보기(관리자 전용)
+// 2) 교육생으로 로그인한 상태 → 본인 화면 (URL의 id는 무시)
+// 3) 둘 다 아니면 → 로그인 페이지로 이동
 export default async function RootPage({ searchParams }) {
   const sp = await searchParams;
-  return <StudentDashboard id={sp?.id} />;
+  const previewId = sp?.id;
+
+  const [admin, student] = await Promise.all([getAuthorizedAdmin(), getAuthorizedStudent()]);
+
+  if (student) {
+    return <StudentDashboard id={student.id} />;
+  }
+
+  if (admin && previewId) {
+    return <StudentDashboard id={previewId} previewMode />;
+  }
+
+  redirect('/login');
 }

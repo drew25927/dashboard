@@ -255,6 +255,23 @@ function StudentsPanel({ students, loadAll, showToast }) {
       showToast('저장 실패: ' + err.message);
     }
   }
+  const [pwDrafts, setPwDrafts] = useState({});
+  async function setPassword(id) {
+    const value = pwDrafts[id];
+    if (!value || value.length < 4) { showToast('비밀번호는 4자 이상 입력해주세요'); return; }
+    try {
+      await apiCall('/api/admin/students', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, field: 'password', value })
+      });
+      setPwDrafts((d) => ({ ...d, [id]: '' }));
+      await loadAll();
+      showToast('비밀번호를 설정했습니다');
+    } catch (err) {
+      showToast('설정 실패: ' + err.message);
+    }
+  }
   async function removeStudent(id) {
     if (!confirm('학생(ID ' + id + ')을 삭제할까요? 출결 기록도 함께 사라집니다.')) return;
     try {
@@ -269,17 +286,29 @@ function StudentsPanel({ students, loadAll, showToast }) {
   return (
     <div className="panel">
       <h2>교육생 명단 ({students.length}명)</h2>
+      <p className="small-dim" style={{ marginBottom: 12 }}>교육생은 <b>이름 + 비밀번호</b>로 로그인합니다. 이름이 같은 교육생이 있으면 로그인이 안 되니 겹치지 않게 입력해주세요.</p>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>ID</th><th>이름</th><th>연락처</th><th>이메일</th><th></th></tr></thead>
+          <thead><tr><th>ID</th><th>이름</th><th>연락처</th><th>이메일</th><th>비밀번호</th><th></th></tr></thead>
           <tbody>
-            {students.length === 0 && <tr><td colSpan={5} className="empty">교육생이 없습니다. 아래 버튼으로 추가하세요.</td></tr>}
+            {students.length === 0 && <tr><td colSpan={6} className="empty">교육생이 없습니다. 아래 버튼으로 추가하세요.</td></tr>}
             {students.map((st) => (
               <tr key={st.id}>
                 <td className="mono">{st.id}</td>
                 <td><input type="text" defaultValue={st.name} onBlur={(e) => updateField(st.id, 'name', e.target.value)} /></td>
                 <td><input type="text" defaultValue={st.contact} onBlur={(e) => updateField(st.id, 'contact', e.target.value)} /></td>
                 <td><input type="text" defaultValue={st.email} onBlur={(e) => updateField(st.id, 'email', e.target.value)} /></td>
+                <td>
+                  <div className="row" style={{ marginBottom: 0, flexWrap: 'nowrap' }}>
+                    <span className={'badge-status ' + (st.hasPassword ? 'ok' : 'warn')} style={{ flexShrink: 0 }}>{st.hasPassword ? '설정됨' : '미설정'}</span>
+                    <input
+                      type="text" placeholder="새 비밀번호" style={{ width: 100 }}
+                      value={pwDrafts[st.id] || ''}
+                      onChange={(e) => setPwDrafts((d) => ({ ...d, [st.id]: e.target.value }))}
+                    />
+                    <button className="btn small ghost" onClick={() => setPassword(st.id)}>설정</button>
+                  </div>
+                </td>
                 <td><button className="btn small danger" onClick={() => removeStudent(st.id)}>삭제</button></td>
               </tr>
             ))}
@@ -843,35 +872,33 @@ function AdminsPanel({ me, showToast }) {
   );
 }
 
-function OverviewPanel({ students, sessions, attendance, studentPageUrl, showToast }) {
+function OverviewPanel({ students, sessions, attendance, studentPageUrl }) {
   if (!students.length) return <div className="panel"><div className="empty">교육생이 없습니다.</div></div>;
-
-  function copyLink(link) {
-    navigator.clipboard?.writeText(link).then(() => showToast('링크를 복사했습니다')).catch(() => showToast(link));
-  }
 
   return (
     <div className="panel">
       <h2>전체 현황</h2>
+      <p className="small-dim" style={{ marginBottom: 12 }}>교육생은 이제 <a href="/login" target="_blank" rel="noreferrer">로그인 페이지</a>에서 본인 이름+비밀번호로 직접 접속합니다. 아래 "미리보기"는 관리자가 확인용으로 보는 화면입니다.</p>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>ID</th><th>이름</th><th>진행</th><th>출석</th><th>출석률</th><th>인정시간</th><th>상태</th><th></th></tr></thead>
+          <thead><tr><th>ID</th><th>이름</th><th>비밀번호</th><th>진행</th><th>출석</th><th>출석률</th><th>인정시간</th><th>상태</th><th></th></tr></thead>
           <tbody>
             {students.map((st) => {
               const mine = attendance.filter((a) => a.student_id === String(st.id));
               const stat = computeStats(sessions, mine);
               const lb = STATUS_LABEL[stat.status];
-              const link = studentPageUrl + '/id=' + st.id;
+              const link = studentPageUrl + '/?id=' + st.id;
               return (
                 <tr key={st.id}>
                   <td className="mono">{st.id}</td>
                   <td>{st.name || <span className="small-dim">(이름 미입력)</span>}</td>
+                  <td><span className={'badge-status ' + (st.hasPassword ? 'ok' : 'warn')}>{st.hasPassword ? '설정됨' : '미설정'}</span></td>
                   <td>{stat.doneCount}/{stat.totalSessions}</td>
                   <td>{stat.attendedCount}/{stat.doneCount}</td>
                   <td>{pct(stat.attendanceRate)}</td>
                   <td>{h(stat.recognizedHours)}/{h(stat.completionHours)}</td>
                   <td><span className={'badge-status ' + lb.cls}>{lb.icon} {lb.text}</span></td>
-                  <td><button className="btn small ghost" onClick={() => copyLink(link)}>링크 복사</button></td>
+                  <td><a className="btn small ghost" href={link} target="_blank" rel="noreferrer">미리보기</a></td>
                 </tr>
               );
             })}

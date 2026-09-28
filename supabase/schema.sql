@@ -6,6 +6,7 @@ create table if not exists students (
   name text not null default '',
   contact text not null default '',
   email text not null default '',
+  password_hash text,
   created_at timestamptz not null default now()
 );
 

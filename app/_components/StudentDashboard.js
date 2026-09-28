@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { computeStats, isDone, STATUS_LABEL } from '../../lib/calc';
 import { getSettings } from '../../lib/settings';
+import LogoutButton from './LogoutButton';
 
 const BUTTON_ORDER = ['zoom', 'venue', 'office', 'submit', 'notice', 'replay'];
 const BUTTON_STYLE = { zoom: '', venue: '', office: 'alt', submit: 'alt', notice: 'warn', replay: 'alt' };
@@ -50,7 +51,7 @@ async function getStudentData(id) {
   return { student, stats, rows, links: sortedLinks, qrCodes: qrCodes || [], notice: noticeRow?.content || '' };
 }
 
-export default async function StudentDashboard({ id }) {
+export default async function StudentDashboard({ id, previewMode }) {
   if (!id) {
     return (
       <div className="page">
@@ -90,6 +91,7 @@ export default async function StudentDashboard({ id }) {
           <h1>{settings.courseTitle} 출결 현황판</h1>
           <div className="sub">{settings.courseSub}</div>
         </div>
+        {previewMode ? <span className="badge-mode" style={{ background: 'rgba(255,255,255,.18)', color: '#fff', borderColor: 'transparent' }}>관리자 미리보기</span> : <LogoutButton />}
       </div>
 
       <div className="split">
