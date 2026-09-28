@@ -7,17 +7,17 @@ export function proxy(req) {
   const { pathname } = req.nextUrl;
   const hasCookie = Boolean(req.cookies.get('admin_session')?.value);
 
-  if (pathname.startsWith('/api/admin') && pathname !== '/api/admin/login') {
+  if (pathname.startsWith('/api/admin')) {
     if (!hasCookie) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }
     return NextResponse.next();
   }
 
-  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
+  if (pathname.startsWith('/admin')) {
     if (!hasCookie) {
       const url = req.nextUrl.clone();
-      url.pathname = '/admin/login';
+      url.pathname = '/login';
       return NextResponse.redirect(url);
     }
   }

@@ -29,7 +29,8 @@ export default function StudentLoginPage() {
     });
     setLoading(false);
     if (res.ok) {
-      router.push('/');
+      const j = await res.json().catch(() => ({}));
+      router.push(j.role === 'admin' ? '/admin' : '/');
       router.refresh();
     } else {
       const j = await res.json().catch(() => ({}));
@@ -45,7 +46,7 @@ export default function StudentLoginPage() {
         <form onSubmit={submit}>
           <input
             type="text"
-            placeholder="이름"
+            placeholder="이름 (마스터 관리자는 비워두세요)"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus

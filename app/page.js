@@ -19,8 +19,9 @@ export default async function RootPage({ searchParams }) {
     return <StudentDashboard id={student.id} />;
   }
 
-  if (admin && previewId) {
-    return <StudentDashboard id={previewId} previewMode />;
+  if (admin) {
+    if (previewId) return <StudentDashboard id={previewId} previewMode />;
+    redirect('/admin');
   }
 
   redirect('/login');

@@ -73,7 +73,7 @@ export default function AdminPage() {
 
   async function logout() {
     await fetch('/api/admin/logout', { method: 'POST' });
-    router.push('/admin/login');
+    router.push('/login');
   }
 
   if (loading) {
