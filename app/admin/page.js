@@ -888,7 +888,7 @@ function OverviewPanel({ students, sessions, attendance, studentPageUrl }) {
       <p className="small-dim" style={{ marginBottom: 12 }}>교육생은 이제 <a href="/login" target="_blank" rel="noreferrer">로그인 페이지</a>에서 본인 이름+비밀번호로 직접 접속합니다. 아래 "미리보기"는 관리자가 확인용으로 보는 화면입니다.</p>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>ID</th><th>이름</th><th>비밀번호</th><th>진행</th><th>출석</th><th>출석률</th><th>인정시간</th><th>상태</th><th></th></tr></thead>
+          <thead><tr><th>ID</th><th>이름</th><th>비밀번호</th><th>진행</th><th>출석</th><th>출석률</th><th>교육시간</th><th>상태</th><th></th></tr></thead>
           <tbody>
             {students.map((st) => {
               const mine = attendance.filter((a) => a.student_id === String(st.id));
@@ -903,7 +903,7 @@ function OverviewPanel({ students, sessions, attendance, studentPageUrl }) {
                   <td>{stat.doneCount}/{stat.totalSessions}</td>
                   <td>{stat.attendedCount}/{stat.doneCount}</td>
                   <td>{pct(stat.attendanceRate)}</td>
-                  <td>{h(stat.recognizedHours)}/{h(stat.completionHours)}</td>
+                  <td>{h(stat.recognizedHours)}/{h(stat.totalHours)}</td>
                   <td><span className={'badge-status ' + lb.cls}>{lb.icon} {lb.text}</span></td>
                   <td><a className="btn small ghost" href={link} target="_blank" rel="noreferrer">미리보기</a></td>
                 </tr>

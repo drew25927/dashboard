@@ -156,8 +156,8 @@ export default async function StudentDashboard({ id, previewMode }) {
 
           <div className="grid2">
             <div className="card">
-              <div className="lbl">누적 인정시간</div>
-              <div className="val">{h(stats.recognizedHours)} / {h(stats.completionHours)}</div>
+              <div className="lbl">누적 교육시간</div>
+              <div className="val">{h(stats.recognizedHours)} / {h(stats.totalHours)}</div>
               <span className={'badge-status ' + lb.cls}>{lb.icon} {lb.text}</span>
             </div>
             <div className="card">
