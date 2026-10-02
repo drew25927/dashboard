@@ -144,8 +144,11 @@ tr.clickable:hover { background: var(--surface-2); }
 select, input[type=text], input[type=date], input[type=number], input[type=password] {
   background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
   border-radius: 7px; padding: 7px 10px; font-size: 13px;
+  max-width: 100%;
 }
 input[type=text] { min-width: 110px; }
+/* 긴 옵션명이 있는 드롭다운이 휴대폰 화면 폭을 넘어 페이지를 가로로 넓히지 않도록 */
+select { min-width: 0; text-overflow: ellipsis; }
 
 .btn { background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .btn:hover { filter: brightness(1.08); }
