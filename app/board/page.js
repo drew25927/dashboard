@@ -67,7 +67,7 @@ function BoardInner() {
     <div className="page">
       <div className="topbar">
         <span className="badge-mode">질문 게시판</span>
-        <a href="/">← 내 출결 현황으로</a>
+        <a href="/">← Home</a>
       </div>
       <div className="banner"><div><h1>{courseTitle} 질문 게시판</h1><div className="sub">관리자에게 궁금한 점을 남겨주세요</div></div></div>
 
