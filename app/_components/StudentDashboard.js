@@ -88,7 +88,7 @@ export default async function StudentDashboard({ id, previewMode }) {
     <div className="page split-page">
       <div className="banner">
         <div>
-          <h1>{settings.courseTitle} 출결 현황판</h1>
+          <h1>{settings.courseTitle} 대시보드</h1>
           <div className="sub">{settings.courseSub}</div>
         </div>
         {previewMode ? <span className="badge-mode" style={{ background: 'rgba(255,255,255,.18)', color: '#fff', borderColor: 'transparent' }}>관리자 미리보기</span> : <LogoutButton />}

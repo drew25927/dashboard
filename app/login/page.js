@@ -41,7 +41,7 @@ export default function StudentLoginPage() {
   return (
     <div className="page">
       <div className="login-card">
-        <h1>{courseTitle} 출결 현황판</h1>
+        <h1>{courseTitle} 대시보드</h1>
         {error && <div className="err">{error}</div>}
         <form onSubmit={submit}>
           <input
