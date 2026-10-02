@@ -22,6 +22,23 @@ export async function GET() {
   return NextResponse.json({ qrCodes: data });
 }
 
+// QR 클릭 시 이동할 링크 저장. 스킴이 없으면 https://를 붙이고, http(s) 외 스킴은 막습니다.
+export async function PUT(req) {
+  const unauth = await requireAdmin();
+  if (unauth) return unauth;
+
+  const { key, linkUrl } = await req.json();
+  if (!key) return NextResponse.json({ error: 'key가 필요합니다.' }, { status: 400 });
+
+  let value = (linkUrl || '').trim();
+  if (value && !/^https?:\/\//i.test(value)) value = 'https://' + value;
+
+  const db = supabaseAdmin();
+  const { error } = await db.from('qr_codes').update({ link_url: value || null }).eq('key', key);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true, linkUrl: value || null });
+}
+
 // multipart/form-data: fields "key" (attendance|submit), "file" (image)
 export async function POST(req) {
   const unauth = await requireAdmin();

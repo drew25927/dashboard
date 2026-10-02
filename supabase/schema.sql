@@ -92,7 +92,8 @@ alter table questions enable row level security;
 create table if not exists qr_codes (
   key text primary key,
   label text not null,
-  image_url text
+  image_url text,
+  link_url text
 );
 alter table qr_codes enable row level security;
 

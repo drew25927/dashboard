@@ -587,6 +587,20 @@ function QrPanel({ showToast }) {
     }
   }
 
+  async function saveLink(key, value) {
+    try {
+      await apiCall('/api/admin/qrcodes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, linkUrl: value })
+      });
+      showToast('링크를 저장했습니다');
+      load();
+    } catch (err) {
+      showToast('저장 실패: ' + err.message);
+    }
+  }
+
   if (loadError) {
     return (
       <div className="panel">
@@ -626,6 +640,14 @@ function QrPanel({ showToast }) {
                 onChange={(e) => upload(q.key, e.target.files?.[0])}
               />
             </label>
+            <input
+              key={q.key + ':' + (q.link_url || '')}
+              type="text"
+              placeholder="클릭 시 이동할 링크 (https://...)"
+              defaultValue={q.link_url || ''}
+              onBlur={(e) => { if ((e.target.value || '') !== (q.link_url || '')) saveLink(q.key, e.target.value); }}
+              style={{ width: 200 }}
+            />
           </div>
         ))}
       </div>

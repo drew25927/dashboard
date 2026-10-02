@@ -51,6 +51,22 @@ async function getStudentData(id) {
   return { student, stats, rows, links: sortedLinks, qrCodes: qrCodes || [], notice: noticeRow?.content || '' };
 }
 
+// 링크가 설정돼 있으면 카드 전체를 눌러 새 탭으로 이동, 없으면 그냥 표시만
+function QrCard({ qr, alt, caption }) {
+  const content = (
+    <>
+      {qr?.image_url
+        ? <img src={qr.image_url} alt={alt} style={{ width: 60, height: 60, objectFit: 'contain', margin: '0 auto 6px' }} />
+        : <div className="box" />}
+      <div className="cap">{caption}</div>
+    </>
+  );
+  if (qr?.link_url) {
+    return <a className="qr qr-link" href={qr.link_url} target="_blank" rel="noreferrer">{content}</a>;
+  }
+  return <div className="qr">{content}</div>;
+}
+
 export default async function StudentDashboard({ id, previewMode }) {
   if (!id) {
     return (
@@ -123,18 +139,8 @@ export default async function StudentDashboard({ id, previewMode }) {
           </div>
 
           <div className="qr-row">
-            <div className="qr">
-              {attendanceQr?.image_url
-                ? <img src={attendanceQr.image_url} alt="출석체크 QR" style={{ width: 60, height: 60, objectFit: 'contain', margin: '0 auto 6px' }} />
-                : <div className="box" />}
-              <div className="cap">출석체크 QR<br />회차마다 갱신</div>
-            </div>
-            <div className="qr">
-              {submitQr?.image_url
-                ? <img src={submitQr.image_url} alt="만족도 조사 QR" style={{ width: 60, height: 60, objectFit: 'contain', margin: '0 auto 6px' }} />
-                : <div className="box" />}
-              <div className="cap">만족도 조사 QR<br />회차 종료 후 제출</div>
-            </div>
+            <QrCard qr={attendanceQr} alt="출석체크 QR" caption={<>출석체크 QR<br />회차마다 갱신</>} />
+            <QrCard qr={submitQr} alt="만족도 조사 QR" caption={<>만족도 조사 QR<br />회차 종료 후 제출</>} />
           </div>
         </div>
 
