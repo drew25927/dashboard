@@ -7,6 +7,7 @@ create table if not exists students (
   contact text not null default '',
   email text not null default '',
   password_hash text,
+  feedback_seen_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -72,7 +73,8 @@ insert into links (key, label, url, type, content) values
   ('office', '관리자 문의', '#', 'board', ''),
   ('submit', '결과물 제출 안내', '#', 'page', '결과물 제출 방법을 안내합니다.'),
   ('notice', '공지사항 · 자료실', '#', 'page', '공지사항과 자료실 안내입니다.'),
-  ('replay', '강의 다시보기 (녹화본)', '#', 'page', '지난 강의 다시보기 방법을 안내합니다.')
+  ('replay', '강의 다시보기 (녹화본)', '#', 'page', '지난 강의 다시보기 방법을 안내합니다.'),
+  ('feedback', '과제 피드백', '#', 'feedback', '')
 on conflict (key) do nothing;
 
 -- 질문 게시판 (관리자 문의)
@@ -87,6 +89,19 @@ create table if not exists questions (
   answered_at timestamptz
 );
 alter table questions enable row level security;
+
+-- 과제 피드백 (관리자가 학생별로 작성, 학생은 답글 가능). 과제 파일 자체는 구글 드라이브에서 받음.
+create table if not exists feedback (
+  id uuid primary key default gen_random_uuid(),
+  student_id text not null references students(id) on delete cascade,
+  title text not null default '',
+  body text not null,
+  author_role text not null default 'admin', -- 'admin' | 'student'
+  author_name text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists feedback_student_idx on feedback (student_id, created_at);
+alter table feedback enable row level security;
 
 -- 학생용 페이지의 QR 코드 이미지 (관리자 화면에서 업로드). image_url은 Supabase Storage 공개 URL.
 create table if not exists qr_codes (

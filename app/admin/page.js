@@ -101,7 +101,7 @@ export default function AdminPage() {
       <div className="tabs">
         {[
           ['attend', '출석체크'], ['students', '교육생 명단'], ['sessions', '회차 일정'], ['course', '과정 정보'],
-          ['notice', '공지사항'], ['links', '링크 설정'], ['questions', '질문 게시판'],
+          ['notice', '공지사항'], ['links', '링크 설정'], ['questions', '질문 게시판'], ['feedback', '과제 피드백'],
           ...(isMaster ? [['admins', '관리자 계정']] : []),
           ['overview', '전체 현황']
         ].map(([k, label]) => (
@@ -132,6 +132,9 @@ export default function AdminPage() {
       )}
       {tab === 'questions' && (
         <QuestionsPanel showToast={showToast} />
+      )}
+      {tab === 'feedback' && (
+        <FeedbackPanel students={students} showToast={showToast} />
       )}
       {tab === 'admins' && isMaster && (
         <AdminsPanel me={me} showToast={showToast} />
@@ -504,7 +507,7 @@ function LinksPanel({ showToast }) {
 
   if (!links) return <div className="panel"><div className="empty">불러오는 중…</div></div>;
 
-  const TYPE_LABEL = { link: '외부 링크', page: '설명 페이지', board: '질문 게시판' };
+  const TYPE_LABEL = { link: '외부 링크', page: '설명 페이지', board: '질문 게시판', feedback: '과제 피드백' };
 
   return (
     <div className="panel">
@@ -546,6 +549,9 @@ function LinksPanel({ showToast }) {
             )}
             {l.type === 'board' && (
               <p className="small-dim">질문·답변은 상단 &quot;질문 게시판&quot; 탭에서 관리합니다.</p>
+            )}
+            {l.type === 'feedback' && (
+              <p className="small-dim">교육생이 로그인해서 본인 피드백을 보는 페이지로 연결됩니다. 피드백 작성은 상단 &quot;과제 피드백&quot; 탭에서 합니다.</p>
             )}
           </div>
         ))}
@@ -652,6 +658,189 @@ function QrPanel({ showToast }) {
         ))}
       </div>
     </div>
+  );
+}
+
+function FeedbackPanel({ students, showToast }) {
+  const [summary, setSummary] = useState(null);
+  const [titles, setTitles] = useState([]);
+  const [loadError, setLoadError] = useState('');
+  const [selected, setSelected] = useState(null);
+  const [thread, setThread] = useState(null);
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [sending, setSending] = useState(false);
+  const [editing, setEditing] = useState(null); // { id, title, body }
+
+  const fmt = (d) => new Date(d).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  const loadSummary = useCallback(() => {
+    setLoadError('');
+    apiCall('/api/admin/feedback')
+      .then((j) => {
+        setSummary(Object.fromEntries((j.summary || []).map((s) => [s.studentId, s])));
+        setTitles(j.titles || []);
+      })
+      .catch((err) => setLoadError(err.message));
+  }, []);
+
+  const loadThread = useCallback((sid) => {
+    setThread(null);
+    apiCall('/api/admin/feedback?studentId=' + encodeURIComponent(sid))
+      .then((j) => setThread(j.feedback || []))
+      .catch((err) => showToast('불러오기 실패: ' + err.message));
+  }, [showToast]);
+
+  useEffect(() => { loadSummary(); }, [loadSummary]);
+  useEffect(() => { if (selected) loadThread(selected); }, [selected, loadThread]);
+
+  async function send(e) {
+    e.preventDefault();
+    if (!body.trim()) { showToast('피드백 내용을 입력해주세요'); return; }
+    setSending(true);
+    try {
+      await apiCall('/api/admin/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: selected, title, body })
+      });
+      setBody('');
+      showToast('피드백을 등록했습니다');
+      loadThread(selected);
+      loadSummary();
+    } catch (err) {
+      showToast('등록 실패: ' + err.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function saveEdit() {
+    try {
+      await apiCall('/api/admin/feedback', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editing)
+      });
+      setEditing(null);
+      showToast('수정했습니다');
+      loadThread(selected);
+    } catch (err) {
+      showToast('수정 실패: ' + err.message);
+    }
+  }
+
+  async function remove(id) {
+    if (!confirm('이 글을 삭제할까요?')) return;
+    try {
+      await apiCall('/api/admin/feedback?id=' + encodeURIComponent(id), { method: 'DELETE' });
+      showToast('삭제했습니다');
+      loadThread(selected);
+      loadSummary();
+    } catch (err) {
+      showToast('삭제 실패: ' + err.message);
+    }
+  }
+
+  if (loadError) {
+    return (
+      <div className="panel">
+        <h2>과제 피드백</h2>
+        <div className="empty">
+          불러오지 못했습니다: {loadError}
+          <div style={{ marginTop: 10 }}><button className="btn small ghost" onClick={loadSummary}>다시 시도</button></div>
+        </div>
+      </div>
+    );
+  }
+  if (!summary) return <div className="panel"><div className="empty">불러오는 중…</div></div>;
+
+  const sel = students.find((s) => s.id === selected);
+  const taStyle = {
+    width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
+    borderRadius: 7, padding: 10, fontFamily: 'inherit', fontSize: 13, lineHeight: 1.6, resize: 'vertical'
+  };
+
+  return (
+    <>
+      <div className="panel">
+        <h2>과제 피드백</h2>
+        <p className="small-dim" style={{ marginBottom: 12 }}>과제 파일은 구글 드라이브에서 확인하고, 여기서는 학생별 피드백만 남깁니다. 학생은 대시보드의 &quot;과제 피드백&quot; 버튼에서 본인 피드백을 보고 답글을 남길 수 있습니다.</p>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>이름</th><th>글 수</th><th>마지막 활동</th><th>상태</th><th></th></tr></thead>
+            <tbody>
+              {students.length === 0 && <tr><td colSpan={6} className="empty">교육생이 없습니다.</td></tr>}
+              {students.map((st) => {
+                const s = summary[st.id];
+                return (
+                  <tr key={st.id} style={selected === st.id ? { background: 'var(--accent-dim)' } : undefined}>
+                    <td className="mono">{st.id}</td>
+                    <td>{st.name || <span className="small-dim">(이름 미입력)</span>}</td>
+                    <td>{s ? s.total : 0}</td>
+                    <td className="small-dim">{s ? fmt(s.lastAt) : '-'}</td>
+                    <td>{s && s.lastRole === 'student' ? <span className="badge-status warn">학생 답글</span> : (s ? <span className="small-dim">발송됨</span> : <span className="small-dim">-</span>)}</td>
+                    <td><button className="btn small ghost" style={{ whiteSpace: 'nowrap' }} onClick={() => { setSelected(st.id); setEditing(null); }}>{s ? '열기' : '작성'}</button></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {selected && (
+        <div className="panel">
+          <h2>{sel ? sel.name || ('ID ' + sel.id) : selected} 님 피드백</h2>
+          {thread === null && <div className="empty">불러오는 중…</div>}
+          {thread && thread.length === 0 && <div className="empty">아직 남긴 피드백이 없습니다.</div>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+            {thread?.map((r) => {
+              const admin = r.author_role === 'admin';
+              return (
+                <div key={r.id} style={{
+                  border: '1px solid var(--border)', borderLeft: '3px solid ' + (admin ? 'var(--accent)' : 'var(--text-dim)'),
+                  borderRadius: 8, padding: '10px 12px', background: admin ? 'var(--accent-dim)' : 'var(--surface)'
+                }}>
+                  <div style={{ fontSize: 12, marginBottom: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <b>{admin ? '관리자(' + (r.author_name || '-') + ')' : '학생'}</b>
+                    {r.title && <span className="badge-status ok">{r.title}</span>}
+                    <span className="small-dim">{fmt(r.created_at)}</span>
+                  </div>
+                  {editing?.id === r.id ? (
+                    <>
+                      <input type="text" placeholder="과제명 (선택)" style={{ width: '100%', marginBottom: 6 }} value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
+                      <textarea rows={4} style={{ ...taStyle, marginBottom: 6 }} value={editing.body} onChange={(e) => setEditing({ ...editing, body: e.target.value })} />
+                      <div className="row" style={{ marginBottom: 0 }}>
+                        <button className="btn small" onClick={saveEdit}>저장</button>
+                        <button className="btn small ghost" onClick={() => setEditing(null)}>취소</button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 13.5, lineHeight: 1.7, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginBottom: 8 }}>{r.body}</div>
+                      <div className="row" style={{ marginBottom: 0 }}>
+                        {admin && <button className="btn small ghost" onClick={() => setEditing({ id: r.id, title: r.title, body: r.body })}>수정</button>}
+                        <button className="btn small danger" onClick={() => remove(r.id)}>삭제</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <form onSubmit={send}>
+            <div className="row">
+              <input type="text" list="feedback-titles" placeholder="과제명 (선택, 예: 사전과제 기획서)" style={{ flex: 1, minWidth: 200 }} maxLength={100} value={title} onChange={(e) => setTitle(e.target.value)} />
+              <datalist id="feedback-titles">{titles.map((t) => <option key={t} value={t} />)}</datalist>
+            </div>
+            <textarea rows={5} style={{ ...taStyle, marginBottom: 8 }} maxLength={3000} placeholder="피드백 내용 (예: 01:23 구간 자막이 작아요 …)" value={body} onChange={(e) => setBody(e.target.value)} />
+            <button className="btn" type="submit" disabled={sending}>{sending ? '등록 중…' : '피드백 등록'}</button>
+          </form>
+        </div>
+      )}
+    </>
   );
 }
 

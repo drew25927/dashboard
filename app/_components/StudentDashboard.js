@@ -3,8 +3,8 @@ import { computeStats, isDone, STATUS_LABEL } from '../../lib/calc';
 import { getSettings } from '../../lib/settings';
 import LogoutButton from './LogoutButton';
 
-const BUTTON_ORDER = ['zoom', 'venue', 'office', 'submit', 'notice', 'replay'];
-const BUTTON_STYLE = { zoom: '', venue: '', office: 'alt', submit: 'alt', notice: 'warn', replay: 'alt' };
+const BUTTON_ORDER = ['zoom', 'venue', 'office', 'submit', 'notice', 'replay', 'feedback'];
+const BUTTON_STYLE = { zoom: '', venue: '', office: 'alt', submit: 'alt', notice: 'warn', replay: 'alt', feedback: 'alt' };
 
 function h(x) {
   return Math.round((x || 0) * 10) / 10 + 'h';
@@ -19,13 +19,14 @@ function fmtDate(d) {
 
 async function getStudentData(id) {
   const db = supabaseAdmin();
-  const [{ data: student }, { data: sessions }, { data: attendanceRows }, { data: links }, { data: qrCodes }, { data: noticeRow }] = await Promise.all([
+  const [{ data: student }, { data: sessions }, { data: attendanceRows }, { data: links }, { data: qrCodes }, { data: noticeRow }, { data: adminFeedback }] = await Promise.all([
     db.from('students').select('*').eq('id', id).maybeSingle(),
     db.from('sessions').select('*').order('n'),
     db.from('attendance').select('*').eq('student_id', id),
     db.from('links').select('*'),
     db.from('qr_codes').select('*'),
-    db.from('notice').select('*').eq('id', 'main').maybeSingle()
+    db.from('notice').select('*').eq('id', 'main').maybeSingle(),
+    db.from('feedback').select('created_at').eq('student_id', id).eq('author_role', 'admin')
   ]);
 
   if (!student) return null;
@@ -48,7 +49,11 @@ async function getStudentData(id) {
   const linksByKey = new Map((links || []).map((l) => [l.key, l]));
   const sortedLinks = BUTTON_ORDER.map((key) => linksByKey.get(key)).filter(Boolean);
 
-  return { student, stats, rows, links: sortedLinks, qrCodes: qrCodes || [], notice: noticeRow?.content || '' };
+  // 아직 읽지 않은 관리자 피드백 수 (피드백 페이지를 열면 읽음 처리됨)
+  const seenAt = student.feedback_seen_at ? new Date(student.feedback_seen_at).getTime() : 0;
+  const unseenFeedback = (adminFeedback || []).filter((f) => new Date(f.created_at).getTime() > seenAt).length;
+
+  return { student, stats, rows, links: sortedLinks, qrCodes: qrCodes || [], notice: noticeRow?.content || '', unseenFeedback };
 }
 
 // 링크가 설정돼 있으면 카드 전체를 눌러 새 탭으로 이동, 없으면 그냥 표시만
@@ -94,7 +99,7 @@ export default async function StudentDashboard({ id, previewMode }) {
     );
   }
 
-  const { student, stats, rows, links, qrCodes, notice } = data;
+  const { student, stats, rows, links, qrCodes, notice, unseenFeedback } = data;
   const qrByKey = new Map(qrCodes.map((q) => [q.key, q]));
   const attendanceQr = qrByKey.get('attendance');
   const submitQr = qrByKey.get('submit');
@@ -131,9 +136,13 @@ export default async function StudentDashboard({ id, previewMode }) {
             {links.map((l) => {
               const href = l.type === 'board' ? '/board?id=' + student.id
                 : l.type === 'page' ? '/page/' + l.key + '?id=' + student.id
+                : l.type === 'feedback' ? '/feedback'
                 : l.url;
               return (
-                <a key={l.key} className={'btn-tile' + (BUTTON_STYLE[l.key] ? ' ' + BUTTON_STYLE[l.key] : '')} href={href}>{l.label}</a>
+                <a key={l.key} className={'btn-tile' + (BUTTON_STYLE[l.key] ? ' ' + BUTTON_STYLE[l.key] : '')} href={href}>
+                  {l.label}
+                  {l.type === 'feedback' && unseenFeedback > 0 && <span className="new-count">{unseenFeedback}</span>}
+                </a>
               );
             })}
           </div>
