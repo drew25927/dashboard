@@ -52,7 +52,7 @@ export async function POST(req) {
   }
 
   const res = NextResponse.json({ ok: true, role: 'student' });
-  res.cookies.set('student_session', JSON.stringify({ id: student.id }), {
+  res.cookies.set('student_sid', JSON.stringify({ id: student.id }), {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',
