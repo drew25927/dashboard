@@ -399,7 +399,7 @@ function SessionsPanel({ sessions, loadAll, showToast }) {
         <div style={{ marginTop: 14 }}>
           <h2 style={{ fontSize: 14, marginBottom: 6 }}>{editing}회차 세부 내용</h2>
           <p className="small-dim" style={{ marginBottom: 8 }}>
-            교육생에게는 수업 하루 전 0시(한국 시간)부터 공개됩니다. 형식: <b>## 제목</b> 줄 아래에 내용을 쓰고, 시간표는 한 줄에 <span className="mono">시작~끝 | 내용 | 진행 방식</span> 으로 적습니다(내용 안의 줄바꿈은 <span className="mono"> / </span>).
+            교육생에게는 수업 하루 전 0시(한국 시간)부터 공개됩니다. 형식: <b>## 제목</b> 줄 아래에 내용을 쓰고, 시간표는 한 줄에 <span className="mono">시작~끝 | 내용</span> 으로 적습니다(내용 안의 줄바꿈은 <span className="mono"> / </span>). 그 뒤에 <span className="mono">| 진행 방식</span>이 붙어 있어도 화면에는 표시하지 않습니다.
           </p>
           <textarea
             value={draft}

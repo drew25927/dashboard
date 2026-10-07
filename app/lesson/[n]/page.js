@@ -74,16 +74,15 @@ export default async function LessonPage({ params }) {
             {sec.rows.length > 0 && (
               <div className="table-wrap" style={{ maxHeight: 'none', marginBottom: 0 }}>
                 <table className="lesson-table">
-                  <colgroup><col className="c-time" /><col /><col className="c-method" /></colgroup>
-                  <thead><tr><th>시간</th><th>세부 내용</th><th>방식</th></tr></thead>
+                  <colgroup><col className="c-time" /><col /></colgroup>
+                  <thead><tr><th>시간</th><th>세부 내용</th></tr></thead>
                   <tbody>
                     {sec.rows.map((r, k) => {
-                      const rest = r.method === '휴식';
+                      const rest = r.items.length === 1 && r.items[0] === '휴식';
                       return (
                         <tr key={k} style={rest ? { color: 'var(--text-dim)' } : undefined}>
                           <td className="mono c-time-cell">{r.start}~{r.end}</td>
                           <td>{r.items.map((t, m) => <div key={m}>{t}</div>)}</td>
-                          <td>{r.method}</td>
                         </tr>
                       );
                     })}
