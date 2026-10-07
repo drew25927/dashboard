@@ -193,3 +193,15 @@ select { min-width: 0; text-overflow: ellipsis; }
 .lesson-when.today { background: var(--accent); color: #fff; }
 .lesson-go { flex: none; font-size: 11px; color: var(--accent-ink); font-weight: 600; }
 a.lesson-link { color: var(--accent-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+
+/* 수업 세부 내용 시간표: 칸 너비를 고정하고 긴 글은 칸 안에서 줄바꿈 */
+.lesson-table { table-layout: fixed; }
+.lesson-table col.c-time { width: 106px; }
+.lesson-table col.c-method { width: 22%; min-width: 64px; }
+.lesson-table td { vertical-align: top; line-height: 1.6; overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
+.lesson-table .c-time-cell { font-size: 11.5px; white-space: nowrap; }
+@media (max-width: 760px) {
+  .lesson-table col.c-time { width: 92px; }
+  .lesson-table col.c-method { width: 72px; }
+  .lesson-table td, .lesson-table th { padding: 6px 7px; }
+}
