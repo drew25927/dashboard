@@ -326,6 +326,32 @@ function StudentsPanel({ students, loadAll, showToast }) {
 }
 
 function SessionsPanel({ sessions, loadAll, showToast }) {
+  const [editing, setEditing] = useState(null);
+  const [draft, setDraft] = useState('');
+  const [savingDetail, setSavingDetail] = useState(false);
+
+  function openEditor(s) {
+    setEditing(s.n);
+    setDraft(s.detail || '');
+  }
+
+  async function saveDetail() {
+    setSavingDetail(true);
+    try {
+      await apiCall('/api/admin/sessions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ n: editing, field: 'detail', value: draft })
+      });
+      await loadAll();
+      showToast('세부 내용을 저장했습니다');
+    } catch (err) {
+      showToast('저장 실패: ' + err.message);
+    } finally {
+      setSavingDetail(false);
+    }
+  }
+
   async function updateField(n, field, value) {
     try {
       await apiCall('/api/admin/sessions', {
@@ -345,7 +371,7 @@ function SessionsPanel({ sessions, loadAll, showToast }) {
       <h2>회차 일정 (총 {sessions.reduce((s, x) => s + Number(x.hours), 0)}h)</h2>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>회차</th><th>일자</th><th>구분</th><th>시간(h)</th><th>주제</th></tr></thead>
+          <thead><tr><th>회차</th><th>일자</th><th>구분</th><th>시간(h)</th><th>주제</th><th>세부 내용</th></tr></thead>
           <tbody>
             {sessions.map((s) => (
               <tr key={s.n}>
@@ -359,11 +385,34 @@ function SessionsPanel({ sessions, loadAll, showToast }) {
                 </td>
                 <td><input type="number" step="0.5" style={{ width: 60 }} defaultValue={s.hours} onBlur={(e) => updateField(s.n, 'hours', Number(e.target.value))} /></td>
                 <td><input type="text" style={{ minWidth: 220 }} defaultValue={s.topic} onBlur={(e) => updateField(s.n, 'topic', e.target.value)} /></td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <button className={'btn small ' + (editing === s.n ? '' : 'ghost')} onClick={() => openEditor(s)}>{s.detail ? '보기·수정' : '작성'}</button>
+                  {s.detail && <a className="small-dim" style={{ marginLeft: 8 }} href={'/lesson/' + s.n} target="_blank" rel="noreferrer">미리보기</a>}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {editing != null && (
+        <div style={{ marginTop: 14 }}>
+          <h2 style={{ fontSize: 14, marginBottom: 6 }}>{editing}회차 세부 내용</h2>
+          <p className="small-dim" style={{ marginBottom: 8 }}>
+            교육생에게는 수업 하루 전 0시(한국 시간)부터 공개됩니다. 형식: <b>## 제목</b> 줄 아래에 내용을 쓰고, 시간표는 한 줄에 <span className="mono">시작~끝 | 내용 | 진행 방식</span> 으로 적습니다(내용 안의 줄바꿈은 <span className="mono"> / </span>).
+          </p>
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={22}
+            style={{ width: '100%', fontFamily: '"IBM Plex Mono", monospace', fontSize: 12, lineHeight: 1.6, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 7, padding: 10 }}
+          />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button className="btn" onClick={saveDetail} disabled={savingDetail}>{savingDetail ? '저장 중…' : '저장'}</button>
+            <button className="btn ghost" onClick={() => setEditing(null)}>닫기</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

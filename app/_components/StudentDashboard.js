@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { computeStats, isDone, STATUS_LABEL } from '../../lib/calc';
 import { getSettings } from '../../lib/settings';
+import { fmtKoreanDate, isLessonOpen, kstToday, lessonTimeRange } from '../../lib/lesson';
 import LogoutButton from './LogoutButton';
 
 const BUTTON_ORDER = ['zoom', 'venue', 'office', 'submit', 'notice', 'replay', 'feedback'];
@@ -34,9 +35,11 @@ async function getStudentData(id) {
   const stats = computeStats(sessions || [], attendanceRows || []);
   const bySession = new Map((attendanceRows || []).map((a) => [a.session_n, a]));
 
+  const today = kstToday();
   const rows = (sessions || []).map((s) => {
     const a = bySession.get(s.n);
     return {
+      lessonOpen: Boolean(s.detail) && isLessonOpen(s.date, today),
       n: s.n,
       date: s.date,
       type: s.type,
@@ -53,7 +56,12 @@ async function getStudentData(id) {
   const seenAt = student.feedback_seen_at ? new Date(student.feedback_seen_at).getTime() : 0;
   const unseenFeedback = (adminFeedback || []).filter((f) => new Date(f.created_at).getTime() > seenAt).length;
 
-  return { student, stats, rows, links: sortedLinks, qrCodes: qrCodes || [], notice: noticeRow?.content || '', unseenFeedback };
+  // 하루 전부터 공개되는 세부 내용: 오늘·내일 수업 (이미 지난 수업은 표의 회차 번호에서 다시 열람)
+  const upcomingLessons = (sessions || [])
+    .filter((s) => s.detail && s.date >= today && isLessonOpen(s.date, today))
+    .map((s) => ({ n: s.n, date: s.date, type: s.type, topic: s.topic, time: lessonTimeRange(s.detail), isToday: s.date === today }));
+
+  return { student, stats, rows, upcomingLessons, links: sortedLinks, qrCodes: qrCodes || [], notice: noticeRow?.content || '', unseenFeedback };
 }
 
 // 링크가 설정돼 있으면 카드 전체를 눌러 새 탭으로 이동, 없으면 그냥 표시만
@@ -99,7 +107,7 @@ export default async function StudentDashboard({ id, previewMode }) {
     );
   }
 
-  const { student, stats, rows, links, qrCodes, notice, unseenFeedback } = data;
+  const { student, stats, rows, upcomingLessons, links, qrCodes, notice, unseenFeedback } = data;
   const qrByKey = new Map(qrCodes.map((q) => [q.key, q]));
   const attendanceQr = qrByKey.get('attendance');
   const submitQr = qrByKey.get('submit');
@@ -130,6 +138,22 @@ export default async function StudentDashboard({ id, previewMode }) {
 
           {notice && (
             <div className="notice-box">{notice}</div>
+          )}
+
+          {upcomingLessons.length > 0 && (
+            <div className="lesson-box">
+              <div className="lesson-box-title">수업 안내</div>
+              {upcomingLessons.map((l) => (
+                <a key={l.n} className="lesson-item" href={'/lesson/' + l.n}>
+                  <span className={'lesson-when' + (l.isToday ? ' today' : '')}>{l.isToday ? '오늘' : '내일'}</span>
+                  <span className="lesson-main">
+                    <b>{l.n}회차 · {l.topic}</b>
+                    <span className="small-dim">{fmtKoreanDate(l.date)} {l.type}{l.time ? ' ' + l.time : ''}</span>
+                  </span>
+                  <span className="lesson-go">세부 내용 →</span>
+                </a>
+              ))}
+            </div>
           )}
 
           <div className="buttons">
@@ -191,11 +215,11 @@ export default async function StudentDashboard({ id, previewMode }) {
                 {rows.map((r) =>
                   !r.done ? (
                     <tr className="future" key={r.n}>
-                      <td>{r.n}</td><td>{fmtDate(r.date)}</td><td>{r.type}</td><td>-</td><td>-</td>
+                      <td>{r.lessonOpen ? <a className="lesson-link" href={'/lesson/' + r.n}>{r.n}</a> : r.n}</td><td>{fmtDate(r.date)}</td><td>{r.type}</td><td>-</td><td>-</td>
                     </tr>
                   ) : (
                     <tr key={r.n}>
-                      <td>{r.n}</td><td>{fmtDate(r.date)}</td><td>{r.type}</td>
+                      <td>{r.lessonOpen ? <a className="lesson-link" href={'/lesson/' + r.n}>{r.n}</a> : r.n}</td><td>{fmtDate(r.date)}</td><td>{r.type}</td>
                       <td className={r.status === '출석' ? 'att-ok' : 'att-no'}>{r.status || '미입력'}</td>
                       <td>{h(r.recognizedHours)}</td>
                     </tr>

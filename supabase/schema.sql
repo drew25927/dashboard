@@ -19,6 +19,9 @@ create table if not exists sessions (
   topic text not null default ''
 );
 
+-- 회차별 세부 내용 (수업 하루 전부터 교육생에게 공개, 관리자 "회차 일정" 탭에서 작성)
+alter table sessions add column if not exists detail text not null default '';
+
 create table if not exists attendance (
   student_id text not null references students(id) on delete cascade,
   session_n integer not null references sessions(n) on delete cascade,

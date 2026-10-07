@@ -181,3 +181,15 @@ select { min-width: 0; text-overflow: ellipsis; }
   .buttons { grid-template-columns: 1fr 1fr; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* 수업 안내 (수업 하루 전부터 공개되는 세부 내용) */
+.lesson-box { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; box-shadow: var(--shadow); }
+.lesson-box-title { font-size: 11px; font-weight: 700; color: var(--accent-ink); margin-bottom: 6px; }
+.lesson-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; text-decoration: none; color: var(--text); font-size: 12.5px; border-top: 1px solid var(--border); }
+.lesson-item:first-of-type { border-top: none; }
+.lesson-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.lesson-main b { overflow-wrap: anywhere; }
+.lesson-when { flex: none; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text-dim); }
+.lesson-when.today { background: var(--accent); color: #fff; }
+.lesson-go { flex: none; font-size: 11px; color: var(--accent-ink); font-weight: 600; }
+a.lesson-link { color: var(--accent-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
