@@ -162,8 +162,9 @@ export default async function StudentDashboard({ id, previewMode }) {
                 : l.type === 'page' ? '/page/' + l.key + '?id=' + student.id
                 : l.type === 'feedback' ? '/feedback'
                 : l.url;
+              const external = !['board', 'page', 'feedback'].includes(l.type) && (l.url || '').toLowerCase().startsWith('http');
               return (
-                <a key={l.key} className={'btn-tile' + (BUTTON_STYLE[l.key] ? ' ' + BUTTON_STYLE[l.key] : '')} href={href}>
+                <a key={l.key} className={'btn-tile' + (BUTTON_STYLE[l.key] ? ' ' + BUTTON_STYLE[l.key] : '')} href={href} {...(external ? { target: '_blank', rel: 'noreferrer' } : {})}>
                   {l.label}
                   {l.type === 'feedback' && unseenFeedback > 0 && <span className="new-count">{unseenFeedback}</span>}
                 </a>
