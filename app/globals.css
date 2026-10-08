@@ -205,3 +205,7 @@ a.lesson-link { color: var(--accent-ink); font-weight: 700; text-decoration: und
   .lesson-table col.c-method { width: 72px; }
   .lesson-table td, .lesson-table th { padding: 6px 7px; }
 }
+
+/* 관리자: 새 질문 알림 */
+.q-alert { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; font-size: 13px; font-weight: 600; }
+.tab-btn .new-count { margin-left: 6px; }

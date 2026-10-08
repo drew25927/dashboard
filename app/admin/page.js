@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { computeStats, isDone, recognizedHoursFor, STATUS_LABEL } from '../../lib/calc';
 import { DEFAULT_COURSE_TITLE, DEFAULT_COURSE_SUB } from '../../lib/config';
@@ -33,6 +33,11 @@ export default function AdminPage() {
   const [toast, setToast] = useState('');
   const [studentPageUrl, setStudentPageUrl] = useState('');
   const [settings, setSettings] = useState({ courseTitle: DEFAULT_COURSE_TITLE, courseSub: DEFAULT_COURSE_SUB });
+  const [pendingQ, setPendingQ] = useState(0);
+  const [qAlert, setQAlert] = useState('');
+  const [notifPerm, setNotifPerm] = useState('unsupported');
+  const lastPendingRef = useRef(null);
+  const baseTitleRef = useRef('');
   const router = useRouter();
 
   const loadSettings = useCallback(() => {
@@ -46,6 +51,41 @@ export default function AdminPage() {
     fetch('/api/admin/me').then((r) => r.json()).then((j) => setMe(j.admin)).catch(() => {});
     loadSettings();
   }, [loadSettings]);
+
+  // 답변 대기 중인 학생 질문 수를 30초마다 확인해서, 새 질문이 오면 알림을 띄웁니다.
+  useEffect(() => {
+    baseTitleRef.current = document.title;
+    if (typeof Notification !== 'undefined') setNotifPerm(Notification.permission);
+    let stop = false;
+    async function check() {
+      try {
+        const j = await apiCall('/api/admin/questions');
+        if (stop) return;
+        const n = (j.questions || []).filter((q) => !q.is_faq && !(q.answer || '').trim()).length;
+        setPendingQ(n);
+        const prev = lastPendingRef.current;
+        if (prev === null) {
+          if (n > 0) setQAlert('답변을 기다리는 질문이 ' + n + '건 있습니다');
+        } else if (n > prev) {
+          const msg = '새 질문이 ' + (n - prev) + '건 등록되었습니다';
+          setQAlert(msg);
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            try { new Notification('질문 게시판', { body: msg }); } catch (e) { /* 알림 실패는 무시 */ }
+          }
+        }
+        lastPendingRef.current = n;
+      } catch (e) { /* 일시적 오류는 다음 확인 때 다시 시도 */ }
+    }
+    check();
+    const id = setInterval(check, 30000);
+    window.addEventListener('questions-changed', check);
+    return () => { stop = true; clearInterval(id); window.removeEventListener('questions-changed', check); };
+  }, []);
+
+  useEffect(() => {
+    if (!baseTitleRef.current) return;
+    document.title = (pendingQ > 0 ? '(' + pendingQ + ') ' : '') + baseTitleRef.current;
+  }, [pendingQ]);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -96,7 +136,22 @@ export default function AdminPage() {
         <button className="btn ghost small" onClick={logout}>로그아웃</button>
       </div>
 
-      <div className="hint">💡 여기서 저장하면 학생용 페이지에 <b>즉시 반영</b>됩니다 (별도 갱신 요청 필요 없음).</div>
+      {qAlert && (
+        <div className="q-alert" role="alert">
+          <span>🔔 {qAlert}</span>
+          <span style={{ display: 'flex', gap: 8 }}>
+            <button className="btn small" onClick={() => { setTab('questions'); setQAlert(''); }}>확인하기</button>
+            <button className="btn small ghost" onClick={() => setQAlert('')}>닫기</button>
+          </span>
+        </div>
+      )}
+
+      <div className="hint">
+        💡 여기서 저장하면 학생용 페이지에 <b>즉시 반영</b>됩니다 (별도 갱신 요청 필요 없음).
+        {notifPerm === 'default' && (
+          <> <button className="btn small ghost" style={{ marginLeft: 8 }} onClick={() => Notification.requestPermission().then(setNotifPerm)}>🔔 새 질문 브라우저 알림 켜기</button></>
+        )}
+      </div>
 
       <div className="tabs">
         {[
@@ -105,7 +160,10 @@ export default function AdminPage() {
           ...(isMaster ? [['admins', '관리자 계정']] : []),
           ['overview', '전체 현황']
         ].map(([k, label]) => (
-          <button key={k} className={'tab-btn' + (tab === k ? ' active' : '')} onClick={() => setTab(k)}>{label}</button>
+          <button key={k} className={'tab-btn' + (tab === k ? ' active' : '')} onClick={() => { setTab(k); if (k === 'questions') setQAlert(''); }}>
+            {label}
+            {k === 'questions' && pendingQ > 0 && <span className="new-count">{pendingQ}</span>}
+          </button>
         ))}
       </div>
 
@@ -904,7 +962,7 @@ function QuestionsPanel({ showToast }) {
   const load = useCallback(() => {
     setLoadError('');
     apiCall('/api/admin/questions')
-      .then((j) => setQuestions(j.questions || []))
+      .then((j) => { setQuestions(j.questions || []); window.dispatchEvent(new Event('questions-changed')); })
       .catch((err) => setLoadError(err.message));
   }, []);
 
