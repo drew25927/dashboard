@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { computeStats, isDone, recognizedHoursFor, STATUS_LABEL } from '../../lib/calc';
 import { DEFAULT_COURSE_TITLE, DEFAULT_COURSE_SUB } from '../../lib/config';
 import { kstToday } from '../../lib/lesson';
-import { hasAssignment } from '../../lib/drive';
+import { hasAssignment } from '../../lib/assignments';
 
 const STATUS_OPTIONS = ['출석', '결석', '지각', '조퇴'];
 
@@ -798,18 +798,23 @@ function SubmissionsPanel({ students, sessions, showToast }) {
     <div className="panel">
       <h2>과제 제출 현황</h2>
       <p className="small-dim" style={{ marginBottom: 10 }}>
-        구글 드라이브 과제 폴더(교육생별 폴더 → 회차 폴더)를 자동으로 읽어, 회차 폴더 안에 파일이 하나라도 있으면 제출로 표시합니다. 교육생 대시보드에도 본인 현황이 같은 방식으로 표시됩니다.
+        구글 드라이브 과제 폴더(교육생별 폴더 → 회차 폴더)를 하루 3번(오전 9시·오후 3시·밤 9시) 자동으로 확인해, 회차 폴더 안(하위 폴더 포함)에 파일이 하나라도 있으면 제출로 표시합니다. 교육생 대시보드에도 본인 현황이 같은 방식으로 표시됩니다.
       </p>
       <div className="row" style={{ marginBottom: 10 }}>
         <button className="btn small" onClick={() => load(true)} disabled={loading}>{loading ? '확인 중…' : '지금 다시 확인'}</button>
-        {data?.ok && <span className="small-dim">마지막 확인 {new Date(data.fetchedAt).toLocaleString('ko-KR')}{data.stale ? ' (이번 확인은 실패해 직전 결과를 보여줍니다)' : ''}</span>}
+        {data?.ok && <span className="small-dim">마지막 확인 {new Date(data.fetchedAt).toLocaleString('ko-KR')}{data.scanning ? ' · 지금 다시 확인하는 중…' : ''}</span>}
       </div>
 
       {data && !data.ok && (
         <div className="q-alert" role="alert" style={{ display: 'block' }}>
-          {data.reason === 'not_configured'
-            ? '구글 드라이브 연결이 아직 설정되지 않았습니다. Vercel 환경변수 GOOGLE_API_KEY(구글 Drive API 키)를 등록하고 다시 배포하면 자동으로 확인합니다.'
-            : '과제 폴더를 읽지 못했습니다: ' + data.error + (data.reason === 'access' ? ' (API 키 또는 폴더 공유 설정 "링크가 있는 모든 사용자 - 뷰어"를 확인해 주세요)' : '')}
+          {data.reason === 'pending'
+            ? '처음 확인을 진행 중입니다. 잠시 뒤 [지금 다시 확인]을 눌러 주세요.'
+            : '과제 폴더를 읽지 못했습니다: ' + data.error}
+        </div>
+      )}
+      {data?.ok && data.error && (
+        <div className="q-alert" role="alert" style={{ display: 'block' }}>
+          가장 최근 확인이 실패해 직전 결과를 보여줍니다: {data.error}
         </div>
       )}
 

@@ -4,6 +4,7 @@ import { getAuthorizedAdmin } from '../lib/adminAuth';
 import { getAuthorizedStudent } from '../lib/studentAuth';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // 하루 3번 시각이 지난 뒤 첫 접속 때 백그라운드로 드라이브를 읽음
 
 // 접근 규칙:
 // 1) 관리자로 로그인한 상태 + ?id= 가 있으면 → 해당 학생 화면 미리보기(관리자 전용)

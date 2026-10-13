@@ -2,7 +2,8 @@ import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { computeStats, isDone, STATUS_LABEL } from '../../lib/calc';
 import { getSettings } from '../../lib/settings';
 import { fmtKoreanDate, isLessonOpen, kstToday, lessonTimeRange } from '../../lib/lesson';
-import { findStudent, getSubmissionData, hasAssignment } from '../../lib/drive';
+import { findStudent, getSubmissionData } from '../../lib/drive';
+import { hasAssignment } from '../../lib/assignments';
 import LogoutButton from './LogoutButton';
 
 const BUTTON_ORDER = ['zoom', 'venue', 'office', 'submit', 'notice', 'replay', 'feedback'];
@@ -74,7 +75,7 @@ async function getStudentData(id) {
           const info = mine.sessions[s.n];
           return { n: s.n, submitted: Boolean(info && info.count > 0), count: info ? info.count : 0, last: info ? info.last : '' };
         });
-      submission = { items, done: items.filter((x) => x.submitted).length };
+      submission = { items, done: items.filter((x) => x.submitted).length, checkedAt: drive.fetchedAt };
     }
   } catch (e) { /* 제출 현황을 못 읽어도 대시보드는 그대로 보여줌 */ }
 
@@ -237,7 +238,7 @@ export default async function StudentDashboard({ id, previewMode }) {
                   </span>
                 ))}
               </div>
-              <div className="small-dim" style={{ marginTop: 6 }}>구글 드라이브 과제 폴더를 자동으로 확인한 결과입니다(몇 분 늦게 반영될 수 있어요).</div>
+              <div className="small-dim" style={{ marginTop: 6 }}>구글 드라이브 과제 폴더를 하루 3번(오전 9시·오후 3시·밤 9시) 자동으로 확인합니다.{submission.checkedAt ? ' 마지막 확인 ' + new Date(submission.checkedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}</div>
             </div>
           )}
 
