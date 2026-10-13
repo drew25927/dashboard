@@ -798,7 +798,7 @@ function SubmissionsPanel({ students, sessions, showToast }) {
     <div className="panel">
       <h2>과제 제출 현황</h2>
       <p className="small-dim" style={{ marginBottom: 10 }}>
-        구글 드라이브 과제 폴더(교육생별 폴더 → 회차 폴더)를 하루 3번(오전 9시·오후 3시·밤 9시) 자동으로 확인해, 회차 폴더 안(하위 폴더 포함)에 파일이 하나라도 있으면 제출로 표시합니다. 교육생 대시보드에도 본인 현황이 같은 방식으로 표시됩니다.
+        구글 드라이브 과제 폴더(교육생별 폴더 → 회차 폴더)를 하루 3번(오전 9시·오후 3시·저녁 7시) 자동으로 확인해, 회차 폴더 안(하위 폴더 포함)에 파일이 하나라도 있으면 제출로 표시합니다. 교육생 대시보드에도 본인 현황이 같은 방식으로 표시됩니다.
       </p>
       <div className="row" style={{ marginBottom: 10 }}>
         <button className="btn small" onClick={() => load(true)} disabled={loading}>{loading ? '확인 중…' : '지금 다시 확인'}</button>

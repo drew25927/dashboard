@@ -238,7 +238,7 @@ export default async function StudentDashboard({ id, previewMode }) {
                   </span>
                 ))}
               </div>
-              <div className="small-dim" style={{ marginTop: 6 }}>구글 드라이브 과제 폴더를 하루 3번(오전 9시·오후 3시·밤 9시) 자동으로 확인합니다.{submission.checkedAt ? ' 마지막 확인 ' + new Date(submission.checkedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}</div>
+              <div className="small-dim" style={{ marginTop: 6 }}>구글 드라이브 과제 폴더를 하루 3번(오전 9시·오후 3시·저녁 7시) 자동으로 확인합니다.{submission.checkedAt ? ' 마지막 확인 ' + new Date(submission.checkedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}</div>
             </div>
           )}
 
