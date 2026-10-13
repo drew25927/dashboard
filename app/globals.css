@@ -209,3 +209,11 @@ a.lesson-link { color: var(--accent-ink); font-weight: 700; text-decoration: und
 /* 관리자: 새 질문 알림 */
 .q-alert { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; font-size: 13px; font-weight: 600; }
 .tab-btn .new-count { margin-left: 6px; }
+
+/* 과제 제출 현황 (학생 대시보드) */
+.submit-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; box-shadow: var(--shadow); }
+.submit-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+.submit-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.submit-chip { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-dim); }
+.submit-chip.ok { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+.submit-chip.no { background: var(--warn-bg); color: var(--warn); border-color: transparent; }

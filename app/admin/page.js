@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { computeStats, isDone, recognizedHoursFor, STATUS_LABEL } from '../../lib/calc';
 import { DEFAULT_COURSE_TITLE, DEFAULT_COURSE_SUB } from '../../lib/config';
+import { kstToday } from '../../lib/lesson';
+import { hasAssignment } from '../../lib/drive';
 
 const STATUS_OPTIONS = ['출석', '결석', '지각', '조퇴'];
 
@@ -156,7 +158,7 @@ export default function AdminPage() {
       <div className="tabs">
         {[
           ['attend', '출석체크'], ['students', '교육생 명단'], ['sessions', '회차 일정'], ['course', '과정 정보'],
-          ['notice', '공지사항'], ['links', '링크 설정'], ['questions', '질문 게시판'], ['feedback', '과제 피드백'],
+          ['notice', '공지사항'], ['links', '링크 설정'], ['questions', '질문 게시판'], ['submissions', '과제 제출 현황'], ['feedback', '과제 피드백'],
           ...(isMaster ? [['admins', '관리자 계정']] : []),
           ['overview', '전체 현황']
         ].map(([k, label]) => (
@@ -190,6 +192,9 @@ export default function AdminPage() {
       )}
       {tab === 'questions' && (
         <QuestionsPanel showToast={showToast} />
+      )}
+      {tab === 'submissions' && (
+        <SubmissionsPanel students={students} sessions={sessions} showToast={showToast} />
       )}
       {tab === 'feedback' && (
         <FeedbackPanel students={students} showToast={showToast} />
@@ -764,6 +769,92 @@ function QrPanel({ showToast }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function SubmissionsPanel({ students, sessions, showToast }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const today = kstToday();
+
+  const load = useCallback((refresh) => {
+    setLoading(true);
+    apiCall('/api/admin/submissions' + (refresh ? '?refresh=1' : ''))
+      .then((j) => setData(j))
+      .catch((err) => setData({ ok: false, reason: 'error', error: err.message }))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(false); }, [load]);
+
+  const cols = sessions.filter((s) => hasAssignment(s.n));
+  const norm = (s) => String(s || '').replace(/\s+/g, '');
+  const driveByName = new Map((data?.students || []).map((d) => [norm(d.name), d]));
+  const matchedNames = new Set(students.map((s) => norm(s.name)));
+  const unmatched = (data?.students || []).filter((d) => !matchedNames.has(norm(d.name)));
+
+  return (
+    <div className="panel">
+      <h2>과제 제출 현황</h2>
+      <p className="small-dim" style={{ marginBottom: 10 }}>
+        구글 드라이브 과제 폴더(교육생별 폴더 → 회차 폴더)를 자동으로 읽어, 회차 폴더 안에 파일이 하나라도 있으면 제출로 표시합니다. 교육생 대시보드에도 본인 현황이 같은 방식으로 표시됩니다.
+      </p>
+      <div className="row" style={{ marginBottom: 10 }}>
+        <button className="btn small" onClick={() => load(true)} disabled={loading}>{loading ? '확인 중…' : '지금 다시 확인'}</button>
+        {data?.ok && <span className="small-dim">마지막 확인 {new Date(data.fetchedAt).toLocaleString('ko-KR')}{data.stale ? ' (이번 확인은 실패해 직전 결과를 보여줍니다)' : ''}</span>}
+      </div>
+
+      {data && !data.ok && (
+        <div className="q-alert" role="alert" style={{ display: 'block' }}>
+          {data.reason === 'not_configured'
+            ? '구글 드라이브 연결이 아직 설정되지 않았습니다. Vercel 환경변수 GOOGLE_API_KEY(구글 Drive API 키)를 등록하고 다시 배포하면 자동으로 확인합니다.'
+            : '과제 폴더를 읽지 못했습니다: ' + data.error + (data.reason === 'access' ? ' (API 키 또는 폴더 공유 설정 "링크가 있는 모든 사용자 - 뷰어"를 확인해 주세요)' : '')}
+        </div>
+      )}
+
+      {data?.ok && (
+        <>
+          <div className="table-wrap" style={{ maxHeight: 520 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th><th>이름</th><th>제출</th>
+                  {cols.map((s) => <th key={s.n} title={fmtDate(s.date)}>{s.n}회</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {students.length === 0 && <tr><td colSpan={3 + cols.length} className="empty">교육생이 없습니다.</td></tr>}
+                {students.map((st) => {
+                  const d = driveByName.get(norm(st.name));
+                  const due = cols.filter((s) => s.date <= today);
+                  const done = d ? due.filter((s) => (d.sessions[s.n]?.count || 0) > 0).length : 0;
+                  return (
+                    <tr key={st.id}>
+                      <td className="mono">{st.id}</td>
+                      <td>{st.name || <span className="small-dim">(이름 미입력)</span>}</td>
+                      <td>{d ? <span className={'badge-status ' + (done === due.length ? 'ok' : 'warn')}>{done}/{due.length}</span> : <span className="small-dim" title="드라이브에 이 이름의 폴더가 없습니다">폴더 없음</span>}</td>
+                      {cols.map((s) => {
+                        const info = d?.sessions[s.n];
+                        const isDue = s.date <= today;
+                        if (!d) return <td key={s.n} className="small-dim">-</td>;
+                        if (info && info.count > 0) return <td key={s.n} className="att-ok" title={info.count + '개 파일'}>✓{info.count}</td>;
+                        return <td key={s.n} className={isDue ? 'att-no' : 'small-dim'}>{isDue ? '미제출' : '-'}</td>;
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="small-dim" style={{ marginTop: 8 }}>✓숫자 = 제출된 파일 수 · "-" = 아직 해당 회차가 지나지 않음 · 16회차는 필수 과제가 없어 제외했습니다. 결과는 5분 동안 보관되며 [지금 다시 확인]으로 바로 갱신할 수 있습니다.</p>
+          {unmatched.length > 0 && (
+            <div className="small-dim" style={{ marginTop: 6 }}>
+              ⚠ 명단과 이름이 맞지 않는 드라이브 폴더: {unmatched.map((u) => u.folder).join(', ')} (폴더 이름의 "번호_" 뒤 이름이 교육생 명단 이름과 같아야 합니다)
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

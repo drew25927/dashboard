@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { computeStats, isDone, STATUS_LABEL } from '../../lib/calc';
 import { getSettings } from '../../lib/settings';
 import { fmtKoreanDate, isLessonOpen, kstToday, lessonTimeRange } from '../../lib/lesson';
+import { findStudent, getSubmissionData, hasAssignment } from '../../lib/drive';
 import LogoutButton from './LogoutButton';
 
 const BUTTON_ORDER = ['zoom', 'venue', 'office', 'submit', 'notice', 'replay', 'feedback'];
@@ -61,7 +62,23 @@ async function getStudentData(id) {
     .filter((s) => s.detail && s.date >= today && isLessonOpen(s.date, today))
     .map((s) => ({ n: s.n, date: s.date, type: s.type, topic: s.topic, time: lessonTimeRange(s.detail), isToday: s.date === today }));
 
-  return { student, stats, rows, upcomingLessons, links: sortedLinks, qrCodes: qrCodes || [], notice: noticeRow?.content || '', unseenFeedback };
+  // 구글 드라이브 과제 폴더를 자동으로 확인한 제출 현황 (설정이 없거나 읽기 실패 시 카드를 숨김)
+  let submission = null;
+  try {
+    const drive = await getSubmissionData();
+    const mine = drive.ok ? findStudent(drive, student.name) : null;
+    if (mine) {
+      const items = (sessions || [])
+        .filter((s) => hasAssignment(s.n) && s.date <= today)
+        .map((s) => {
+          const info = mine.sessions[s.n];
+          return { n: s.n, submitted: Boolean(info && info.count > 0), count: info ? info.count : 0, last: info ? info.last : '' };
+        });
+      submission = { items, done: items.filter((x) => x.submitted).length };
+    }
+  } catch (e) { /* 제출 현황을 못 읽어도 대시보드는 그대로 보여줌 */ }
+
+  return { student, stats, rows, upcomingLessons, submission, links: sortedLinks, qrCodes: qrCodes || [], notice: noticeRow?.content || '', unseenFeedback };
 }
 
 // 링크가 설정돼 있으면 카드 전체를 눌러 새 탭으로 이동, 없으면 그냥 표시만
@@ -107,7 +124,7 @@ export default async function StudentDashboard({ id, previewMode }) {
     );
   }
 
-  const { student, stats, rows, upcomingLessons, links, qrCodes, notice, unseenFeedback } = data;
+  const { student, stats, rows, upcomingLessons, submission, links, qrCodes, notice, unseenFeedback } = data;
   const qrByKey = new Map(qrCodes.map((q) => [q.key, q]));
   const attendanceQr = qrByKey.get('attendance');
   const submitQr = qrByKey.get('submit');
@@ -206,6 +223,23 @@ export default async function StudentDashboard({ id, previewMode }) {
               <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>결석 허용 여유 {h(stats.slack)}</div>
             </div>
           </div>
+
+          {submission && submission.items.length > 0 && (
+            <div className="submit-box">
+              <div className="submit-head">
+                <b>과제 제출 현황</b>
+                <span className={'badge-status ' + (submission.done === submission.items.length ? 'ok' : 'warn')}>{submission.done} / {submission.items.length} 제출</span>
+              </div>
+              <div className="submit-chips">
+                {submission.items.map((it) => (
+                  <span key={it.n} className={'submit-chip' + (it.submitted ? ' ok' : ' no')} title={it.submitted ? it.count + '개 파일' + (it.last ? ' · 최근 ' + fmtDate(it.last.slice(0, 10)) : '') : '아직 제출 파일이 없습니다'}>
+                    {it.n}회차 {it.submitted ? '✅' : '⬜'}
+                  </span>
+                ))}
+              </div>
+              <div className="small-dim" style={{ marginTop: 6 }}>구글 드라이브 과제 폴더를 자동으로 확인한 결과입니다(몇 분 늦게 반영될 수 있어요).</div>
+            </div>
+          )}
 
           <div className="table-wrap tall">
             <table>
