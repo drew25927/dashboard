@@ -888,16 +888,15 @@ function AiAccountsPanel({ students, showToast }) {
   }
   const newId = () => 't' + Math.random().toString(36).slice(2, 10);
 
-  function addTool(preset) {
+  function addTool() {
     const id = newId();
-    update((c) => { c.tools.push({ id, name: '', url: '', purpose: '', cautions: '', shared: { loginId: '', password: '' }, ...(preset || {}) }); });
+    update((c) => { c.tools.push({ id, name: '', url: '', purpose: '', cautions: '' }); });
     setActiveTool(id);
   }
   function addDefaults() {
     const presets = [
       { name: 'Higgsfield', url: 'https://higgsfield.ai', purpose: '이미지·영상 생성 (센터 라이선스 제공)' },
       { name: 'Suno', url: 'https://suno.com', purpose: '음악 생성 (센터 라이선스 제공)' },
-      { name: 'ElevenLabs', url: 'https://elevenlabs.io', purpose: '내레이션·대사·효과음 음성 생성' },
       { name: 'CapCut', url: 'https://www.capcut.com', purpose: '영상 편집·자막·색보정·믹싱 (센터 라이선스 제공)' }
     ];
     let first = '';
@@ -905,41 +904,38 @@ function AiAccountsPanel({ students, showToast }) {
       for (const p of presets) {
         const id = newId();
         if (!first) first = id;
-        c.tools.push({ id, name: p.name, url: p.url, purpose: p.purpose, cautions: '', shared: { loginId: '', password: '' } });
+        c.tools.push({ id, name: p.name, url: p.url, purpose: p.purpose, cautions: '' });
       }
     });
     setActiveTool(first);
   }
   function removeTool(id) {
-    if (!confirm('이 서비스와 입력된 계정 정보를 삭제할까요?')) return;
-    update((c) => { c.tools = c.tools.filter((t) => t.id !== id); delete c.accounts[id]; });
+    if (!confirm('이 서비스를 삭제할까요?')) return;
+    update((c) => { c.tools = c.tools.filter((t) => t.id !== id); });
     setActiveTool((cur) => (cur === id ? '' : cur));
   }
   function setToolField(id, field, value) {
-    update((c) => { const t = c.tools.find((x) => x.id === id); if (field.startsWith('shared.')) t.shared[field.slice(7)] = value; else t[field] = value; });
+    update((c) => { c.tools.find((x) => x.id === id)[field] = value; });
   }
-  function setAccount(toolId, studentId, field, value) {
+  function setGoogle(studentId, field, value) {
     update((c) => {
-      c.accounts[toolId] = c.accounts[toolId] || {};
-      const a = c.accounts[toolId][studentId] || { loginId: '', password: '' };
+      const a = c.google.students[studentId] || { loginId: '', password: '' };
       a[field] = value;
-      c.accounts[toolId][studentId] = a;
+      c.google.students[studentId] = a;
     });
   }
 
   function applyPaste() {
-    if (!activeTool) return;
     const norm = (s) => String(s || '').replace(/\s+/g, '');
     let ok = 0; const miss = [];
     update((c) => {
-      c.accounts[activeTool] = c.accounts[activeTool] || {};
       for (const line of paste.split('\n')) {
         if (!line.trim()) continue;
         const cols = line.split(/\t|,/).map((x) => x.trim());
         const [key, loginId, password] = cols;
         const st = students.find((s) => s.id === key || norm(s.name) === norm(key));
         if (!st || (!loginId && !password)) { miss.push(key || '(빈 줄)'); continue; }
-        c.accounts[activeTool][st.id] = { loginId: loginId || '', password: password || '' };
+        c.google.students[st.id] = { loginId: loginId || '', password: password || '' };
         ok++;
       }
     });
@@ -977,25 +973,58 @@ function AiAccountsPanel({ students, showToast }) {
       <div className="panel">
         <h2>생성형 AI 계정 · 주의사항</h2>
         <p className="small-dim" style={{ marginBottom: 12 }}>
-          서비스별 안내와 교육생별 계정(아이디·비밀번호)을 입력하면, 교육생 대시보드에 <b>"생성형 AI 계정"</b> 버튼이 생기고 교육생은 <b>본인 계정만</b> 볼 수 있습니다(비밀번호는 [보기]를 눌러야 보임). 입력한 뒤 아래 <b>[저장]</b>을 눌러야 적용됩니다.
+          교육생 대시보드에 <b>"생성형 AI 계정"</b> 버튼이 생기고, 교육생은 <b>본인 구글 계정</b>과 서비스별 주의사항을 볼 수 있습니다(비밀번호는 [보기]를 눌러야 보임, 다른 교육생 계정은 보이지 않음). 모든 서비스에 같은 구글 계정으로 로그인하는 구조라서 계정은 교육생당 하나만 입력합니다. 입력한 뒤 아래 <b>[저장]</b>을 눌러야 적용됩니다.
         </p>
-        <label className="small-dim">공통 주의사항 (모든 서비스 위에 표시)</label>
+        <label className="small-dim">공통 주의사항 (맨 위에 표시)</label>
         <textarea rows={4} style={{ ...taStyle, marginTop: 6 }} maxLength={3000} placeholder="예) 계정은 본인만 사용하세요. 비밀번호를 바꾸거나 다른 사람과 공유하지 마세요." value={cfg.common} onChange={(e) => update((c) => { c.common = e.target.value; })} />
       </div>
 
       <div className="panel">
-        <h2>서비스</h2>
+        <h2>구글 계정 (모든 서비스 공통)</h2>
+        <label className="small-dim">공용 계정 (선택 — 교육생별 계정이 없는 사람에게 대신 보여줍니다)</label>
+        <div className="row" style={{ marginTop: 6 }}>
+          <input type="text" placeholder="공용 구글 아이디" autoComplete="off" value={cfg.google.shared.loginId} onChange={(e) => update((c) => { c.google.shared.loginId = e.target.value; })} />
+          <input type="text" placeholder="공용 비밀번호" autoComplete="off" value={cfg.google.shared.password} onChange={(e) => update((c) => { c.google.shared.password = e.target.value; })} />
+        </div>
+        <p className="small-dim" style={{ margin: '10px 0 6px' }}>교육생별 계정 — 엑셀에서 복사해 붙여넣을 수 있습니다. 한 줄에 <b>이름(또는 ID) ↹ 아이디 ↹ 비밀번호</b> 형식입니다.</p>
+        <textarea rows={3} style={taStyle} placeholder={'강영화\tkang@gmail.com\tpassword123'} value={paste} onChange={(e) => setPaste(e.target.value)} />
+        <div className="row" style={{ marginTop: 8 }}>
+          <button className="btn small ghost" onClick={applyPaste} disabled={!paste.trim()}>붙여넣은 내용 반영</button>
+          {pasteMsg && <span className="small-dim">{pasteMsg}</span>}
+        </div>
+        <div className="table-wrap" style={{ maxHeight: 460, marginTop: 10 }}>
+          <table>
+            <thead><tr><th>ID</th><th>이름</th><th>구글 아이디</th><th>비밀번호</th></tr></thead>
+            <tbody>
+              {students.map((st) => {
+                const a = cfg.google.students[st.id] || { loginId: '', password: '' };
+                return (
+                  <tr key={st.id}>
+                    <td className="mono">{st.id}</td>
+                    <td>{st.name || <span className="small-dim">(이름 미입력)</span>}</td>
+                    <td><input type="text" style={{ minWidth: 200 }} autoComplete="off" value={a.loginId} onChange={(e) => setGoogle(st.id, 'loginId', e.target.value)} /></td>
+                    <td><input type="text" style={{ minWidth: 150 }} autoComplete="off" value={a.password} onChange={(e) => setGoogle(st.id, 'password', e.target.value)} /></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="panel">
+        <h2>서비스별 안내 · 주의사항</h2>
         {cfg.tools.length === 0 && (
           <div className="empty">
             등록된 서비스가 없습니다.
-            <div style={{ marginTop: 10 }}><button className="btn small ghost" onClick={addDefaults}>기본 서비스 4개 추가 (Higgsfield · Suno · ElevenLabs · CapCut)</button></div>
+            <div style={{ marginTop: 10 }}><button className="btn small ghost" onClick={addDefaults}>기본 서비스 3개 추가 (Higgsfield · Suno · CapCut)</button></div>
           </div>
         )}
         <div className="row" style={{ flexWrap: 'wrap' }}>
           {cfg.tools.map((t) => (
             <button key={t.id} className={'tab-btn' + (t.id === activeTool ? ' active' : '')} onClick={() => setActiveTool(t.id)}>{t.name || '(이름 없음)'}</button>
           ))}
-          <button className="btn small ghost" onClick={() => addTool()}>+ 서비스 추가</button>
+          <button className="btn small ghost" onClick={addTool}>+ 서비스 추가</button>
         </div>
 
         {tool && (
@@ -1007,46 +1036,10 @@ function AiAccountsPanel({ students, showToast }) {
             </div>
             <div className="row"><input type="text" placeholder="용도 (예: 이미지·영상 생성)" style={{ width: '100%' }} maxLength={200} value={tool.purpose} onChange={(e) => setToolField(tool.id, 'purpose', e.target.value)} /></div>
             <label className="small-dim">이 서비스의 주의사항</label>
-            <textarea rows={5} style={{ ...taStyle, marginTop: 6, marginBottom: 12 }} maxLength={3000} placeholder="예) 크레딧은 1인당 한도가 있습니다. 핵심 컷부터 생성하세요. 실존 인물·브랜드 무단 사용 금지." value={tool.cautions} onChange={(e) => setToolField(tool.id, 'cautions', e.target.value)} />
-
-            <label className="small-dim">공용 계정 (선택 — 교육생별 계정이 없는 사람에게 대신 보여줍니다)</label>
-            <div className="row" style={{ marginTop: 6 }}>
-              <input type="text" placeholder="공용 아이디" autoComplete="off" value={tool.shared.loginId} onChange={(e) => setToolField(tool.id, 'shared.loginId', e.target.value)} />
-              <input type="text" placeholder="공용 비밀번호" autoComplete="off" value={tool.shared.password} onChange={(e) => setToolField(tool.id, 'shared.password', e.target.value)} />
-            </div>
+            <textarea rows={5} style={{ ...taStyle, marginTop: 6 }} maxLength={3000} placeholder="예) 크레딧은 1인당 한도가 있습니다. 핵심 컷부터 생성하세요. 실존 인물·브랜드 무단 사용 금지." value={tool.cautions} onChange={(e) => setToolField(tool.id, 'cautions', e.target.value)} />
           </div>
         )}
       </div>
-
-      {tool && (
-        <div className="panel">
-          <h2>{tool.name || '(이름 없음)'} — 교육생별 계정</h2>
-          <p className="small-dim" style={{ marginBottom: 10 }}>엑셀에서 복사해 붙여넣을 수 있습니다. 한 줄에 <b>이름(또는 ID) ↹ 아이디 ↹ 비밀번호</b> 형식입니다.</p>
-          <textarea rows={3} style={taStyle} placeholder={'강영화\tkang@example.com\tpassword123'} value={paste} onChange={(e) => setPaste(e.target.value)} />
-          <div className="row" style={{ marginTop: 8 }}>
-            <button className="btn small ghost" onClick={applyPaste} disabled={!paste.trim()}>붙여넣은 내용 반영</button>
-            {pasteMsg && <span className="small-dim">{pasteMsg}</span>}
-          </div>
-          <div className="table-wrap" style={{ maxHeight: 460, marginTop: 10 }}>
-            <table>
-              <thead><tr><th>ID</th><th>이름</th><th>아이디</th><th>비밀번호</th></tr></thead>
-              <tbody>
-                {students.map((st) => {
-                  const a = cfg.accounts[tool.id]?.[st.id] || { loginId: '', password: '' };
-                  return (
-                    <tr key={st.id}>
-                      <td className="mono">{st.id}</td>
-                      <td>{st.name || <span className="small-dim">(이름 미입력)</span>}</td>
-                      <td><input type="text" style={{ minWidth: 190 }} autoComplete="off" value={a.loginId} onChange={(e) => setAccount(tool.id, st.id, 'loginId', e.target.value)} /></td>
-                      <td><input type="text" style={{ minWidth: 150 }} autoComplete="off" value={a.password} onChange={(e) => setAccount(tool.id, st.id, 'password', e.target.value)} /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       <div className="panel" style={{ position: 'sticky', bottom: 8, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <button className="btn" onClick={save} disabled={saving || !dirty}>{saving ? '저장 중…' : '저장'}</button>

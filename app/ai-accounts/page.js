@@ -24,7 +24,7 @@ export default async function AiAccountsPage({ searchParams }) {
 
   const [cfg, settings] = await Promise.all([getAiConfig(), getSettings()]);
   const view = viewFor(cfg, target.id);
-  const empty = !view.common && view.tools.length === 0;
+  const empty = !view.common && view.tools.length === 0 && !view.hasGoogleSection;
 
   return (
     <div className="page">
@@ -48,6 +48,24 @@ export default async function AiAccountsPage({ searchParams }) {
         </div>
       )}
 
+      {(view.google || view.hasGoogleSection) && (
+        <div className="panel">
+          <h2 style={{ marginBottom: 6 }}>구글 계정</h2>
+          <div className="small-dim" style={{ marginBottom: 10 }}>아래 서비스에는 모두 이 구글 계정으로 로그인해서 사용합니다.</div>
+          <div className="acc-box">
+            {view.google ? (
+              <>
+                {view.google.kind === 'shared' && <div className="small-dim" style={{ marginBottom: 6 }}>모든 교육생이 함께 쓰는 공용 계정입니다.</div>}
+                <SecretRow label="아이디" value={view.google.loginId} />
+                <SecretRow label="비밀번호" value={view.google.password} secret />
+              </>
+            ) : (
+              <div className="small-dim">아직 배정된 계정이 없습니다. 운영 담당자에게 문의해 주세요.</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {view.tools.map((t) => (
         <div className="panel" key={t.id}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
@@ -55,18 +73,7 @@ export default async function AiAccountsPage({ searchParams }) {
             {t.url && <a className="btn small" href={t.url} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>열기 →</a>}
           </div>
           {t.purpose && <div className="small-dim" style={{ marginBottom: 10 }}>{t.purpose}</div>}
-
-          <div className="acc-box">
-            {t.account ? (
-              <>
-                {t.account.kind === 'shared' && <div className="small-dim" style={{ marginBottom: 6 }}>모든 교육생이 함께 쓰는 공용 계정입니다.</div>}
-                <SecretRow label="아이디" value={t.account.loginId} />
-                <SecretRow label="비밀번호" value={t.account.password} secret />
-              </>
-            ) : (
-              <div className="small-dim">아직 배정된 계정이 없습니다. 운영 담당자에게 문의해 주세요.</div>
-            )}
-          </div>
+          {view.google && <div className="small-dim" style={{ marginBottom: 10 }}>로그인: 위의 구글 계정으로 <b>Google로 계속하기</b>를 선택하세요.</div>}
 
           {t.cautions && (
             <div className="acc-caution">
