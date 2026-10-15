@@ -217,3 +217,10 @@ a.lesson-link { color: var(--accent-ink); font-weight: 700; text-decoration: und
 .submit-chip { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-dim); }
 .submit-chip.ok { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
 .submit-chip.no { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+
+/* 생성형 AI 계정 (교육생 화면) */
+.acc-box { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+.acc-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 0; font-size: 13px; }
+.acc-label { flex: none; width: 58px; color: var(--text-dim); font-size: 12px; }
+.acc-value { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.acc-caution { background: var(--warn-bg); color: var(--text); border: 1px solid var(--warn); border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.7; }

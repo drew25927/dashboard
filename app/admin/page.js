@@ -158,7 +158,7 @@ export default function AdminPage() {
       <div className="tabs">
         {[
           ['attend', '출석체크'], ['students', '교육생 명단'], ['sessions', '회차 일정'], ['course', '과정 정보'],
-          ['notice', '공지사항'], ['links', '링크 설정'], ['questions', '질문 게시판'], ['submissions', '과제 제출 현황'], ['feedback', '과제 피드백'],
+          ['notice', '공지사항'], ['links', '링크 설정'], ['questions', '질문 게시판'], ['submissions', '과제 제출 현황'], ['feedback', '과제 피드백'], ['aiaccounts', '생성형 AI 계정'],
           ...(isMaster ? [['admins', '관리자 계정']] : []),
           ['overview', '전체 현황']
         ].map(([k, label]) => (
@@ -195,6 +195,9 @@ export default function AdminPage() {
       )}
       {tab === 'submissions' && (
         <SubmissionsPanel students={students} sessions={sessions} showToast={showToast} />
+      )}
+      {tab === 'aiaccounts' && (
+        <AiAccountsPanel students={students} showToast={showToast} />
       )}
       {tab === 'feedback' && (
         <FeedbackPanel students={students} showToast={showToast} />
@@ -861,6 +864,195 @@ function SubmissionsPanel({ students, sessions, showToast }) {
         </>
       )}
     </div>
+  );
+}
+
+function AiAccountsPanel({ students, showToast }) {
+  const [cfg, setCfg] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [activeTool, setActiveTool] = useState('');
+  const [paste, setPaste] = useState('');
+  const [pasteMsg, setPasteMsg] = useState('');
+
+  useEffect(() => {
+    apiCall('/api/admin/ai-accounts')
+      .then((j) => { setCfg(j.config); setActiveTool(j.config.tools[0]?.id || ''); })
+      .catch((err) => setLoadError(err.message));
+  }, []);
+
+  function update(fn) {
+    setCfg((c) => { const next = JSON.parse(JSON.stringify(c)); fn(next); return next; });
+    setDirty(true);
+  }
+  const newId = () => 't' + Math.random().toString(36).slice(2, 10);
+
+  function addTool(preset) {
+    const id = newId();
+    update((c) => { c.tools.push({ id, name: '', url: '', purpose: '', cautions: '', shared: { loginId: '', password: '' }, ...(preset || {}) }); });
+    setActiveTool(id);
+  }
+  function addDefaults() {
+    const presets = [
+      { name: 'Higgsfield', url: 'https://higgsfield.ai', purpose: '이미지·영상 생성 (센터 라이선스 제공)' },
+      { name: 'Suno', url: 'https://suno.com', purpose: '음악 생성 (센터 라이선스 제공)' },
+      { name: 'ElevenLabs', url: 'https://elevenlabs.io', purpose: '내레이션·대사·효과음 음성 생성' },
+      { name: 'CapCut', url: 'https://www.capcut.com', purpose: '영상 편집·자막·색보정·믹싱 (센터 라이선스 제공)' }
+    ];
+    let first = '';
+    update((c) => {
+      for (const p of presets) {
+        const id = newId();
+        if (!first) first = id;
+        c.tools.push({ id, name: p.name, url: p.url, purpose: p.purpose, cautions: '', shared: { loginId: '', password: '' } });
+      }
+    });
+    setActiveTool(first);
+  }
+  function removeTool(id) {
+    if (!confirm('이 서비스와 입력된 계정 정보를 삭제할까요?')) return;
+    update((c) => { c.tools = c.tools.filter((t) => t.id !== id); delete c.accounts[id]; });
+    setActiveTool((cur) => (cur === id ? '' : cur));
+  }
+  function setToolField(id, field, value) {
+    update((c) => { const t = c.tools.find((x) => x.id === id); if (field.startsWith('shared.')) t.shared[field.slice(7)] = value; else t[field] = value; });
+  }
+  function setAccount(toolId, studentId, field, value) {
+    update((c) => {
+      c.accounts[toolId] = c.accounts[toolId] || {};
+      const a = c.accounts[toolId][studentId] || { loginId: '', password: '' };
+      a[field] = value;
+      c.accounts[toolId][studentId] = a;
+    });
+  }
+
+  function applyPaste() {
+    if (!activeTool) return;
+    const norm = (s) => String(s || '').replace(/\s+/g, '');
+    let ok = 0; const miss = [];
+    update((c) => {
+      c.accounts[activeTool] = c.accounts[activeTool] || {};
+      for (const line of paste.split('\n')) {
+        if (!line.trim()) continue;
+        const cols = line.split(/\t|,/).map((x) => x.trim());
+        const [key, loginId, password] = cols;
+        const st = students.find((s) => s.id === key || norm(s.name) === norm(key));
+        if (!st || (!loginId && !password)) { miss.push(key || '(빈 줄)'); continue; }
+        c.accounts[activeTool][st.id] = { loginId: loginId || '', password: password || '' };
+        ok++;
+      }
+    });
+    setPasteMsg(ok + '명 반영' + (miss.length ? ' · 찾지 못한 이름: ' + miss.join(', ') : '') + ' — 아래 [저장]을 눌러야 적용됩니다.');
+    setPaste('');
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const j = await apiCall('/api/admin/ai-accounts', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config: cfg })
+      });
+      setCfg(j.config);
+      setDirty(false);
+      showToast('저장했습니다');
+    } catch (err) {
+      showToast('저장 실패: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loadError) return <div className="panel"><h2>생성형 AI 계정</h2><div className="empty">불러오지 못했습니다: {loadError}</div></div>;
+  if (!cfg) return <div className="panel"><div className="empty">불러오는 중…</div></div>;
+
+  const taStyle = {
+    width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)',
+    borderRadius: 7, padding: 10, fontFamily: 'inherit', fontSize: 13, lineHeight: 1.6, resize: 'vertical'
+  };
+  const tool = cfg.tools.find((t) => t.id === activeTool);
+
+  return (
+    <>
+      <div className="panel">
+        <h2>생성형 AI 계정 · 주의사항</h2>
+        <p className="small-dim" style={{ marginBottom: 12 }}>
+          서비스별 안내와 교육생별 계정(아이디·비밀번호)을 입력하면, 교육생 대시보드에 <b>"생성형 AI 계정"</b> 버튼이 생기고 교육생은 <b>본인 계정만</b> 볼 수 있습니다(비밀번호는 [보기]를 눌러야 보임). 입력한 뒤 아래 <b>[저장]</b>을 눌러야 적용됩니다.
+        </p>
+        <label className="small-dim">공통 주의사항 (모든 서비스 위에 표시)</label>
+        <textarea rows={4} style={{ ...taStyle, marginTop: 6 }} maxLength={3000} placeholder="예) 계정은 본인만 사용하세요. 비밀번호를 바꾸거나 다른 사람과 공유하지 마세요." value={cfg.common} onChange={(e) => update((c) => { c.common = e.target.value; })} />
+      </div>
+
+      <div className="panel">
+        <h2>서비스</h2>
+        {cfg.tools.length === 0 && (
+          <div className="empty">
+            등록된 서비스가 없습니다.
+            <div style={{ marginTop: 10 }}><button className="btn small ghost" onClick={addDefaults}>기본 서비스 4개 추가 (Higgsfield · Suno · ElevenLabs · CapCut)</button></div>
+          </div>
+        )}
+        <div className="row" style={{ flexWrap: 'wrap' }}>
+          {cfg.tools.map((t) => (
+            <button key={t.id} className={'tab-btn' + (t.id === activeTool ? ' active' : '')} onClick={() => setActiveTool(t.id)}>{t.name || '(이름 없음)'}</button>
+          ))}
+          <button className="btn small ghost" onClick={() => addTool()}>+ 서비스 추가</button>
+        </div>
+
+        {tool && (
+          <div style={{ marginTop: 14 }}>
+            <div className="row">
+              <input type="text" placeholder="서비스 이름 (예: Higgsfield)" style={{ minWidth: 180 }} maxLength={60} value={tool.name} onChange={(e) => setToolField(tool.id, 'name', e.target.value)} />
+              <input type="text" placeholder="접속 주소 (https://…)" style={{ flex: 1, minWidth: 220 }} maxLength={300} value={tool.url} onChange={(e) => setToolField(tool.id, 'url', e.target.value)} />
+              <button className="btn small danger" onClick={() => removeTool(tool.id)}>서비스 삭제</button>
+            </div>
+            <div className="row"><input type="text" placeholder="용도 (예: 이미지·영상 생성)" style={{ width: '100%' }} maxLength={200} value={tool.purpose} onChange={(e) => setToolField(tool.id, 'purpose', e.target.value)} /></div>
+            <label className="small-dim">이 서비스의 주의사항</label>
+            <textarea rows={5} style={{ ...taStyle, marginTop: 6, marginBottom: 12 }} maxLength={3000} placeholder="예) 크레딧은 1인당 한도가 있습니다. 핵심 컷부터 생성하세요. 실존 인물·브랜드 무단 사용 금지." value={tool.cautions} onChange={(e) => setToolField(tool.id, 'cautions', e.target.value)} />
+
+            <label className="small-dim">공용 계정 (선택 — 교육생별 계정이 없는 사람에게 대신 보여줍니다)</label>
+            <div className="row" style={{ marginTop: 6 }}>
+              <input type="text" placeholder="공용 아이디" autoComplete="off" value={tool.shared.loginId} onChange={(e) => setToolField(tool.id, 'shared.loginId', e.target.value)} />
+              <input type="text" placeholder="공용 비밀번호" autoComplete="off" value={tool.shared.password} onChange={(e) => setToolField(tool.id, 'shared.password', e.target.value)} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {tool && (
+        <div className="panel">
+          <h2>{tool.name || '(이름 없음)'} — 교육생별 계정</h2>
+          <p className="small-dim" style={{ marginBottom: 10 }}>엑셀에서 복사해 붙여넣을 수 있습니다. 한 줄에 <b>이름(또는 ID) ↹ 아이디 ↹ 비밀번호</b> 형식입니다.</p>
+          <textarea rows={3} style={taStyle} placeholder={'강영화\tkang@example.com\tpassword123'} value={paste} onChange={(e) => setPaste(e.target.value)} />
+          <div className="row" style={{ marginTop: 8 }}>
+            <button className="btn small ghost" onClick={applyPaste} disabled={!paste.trim()}>붙여넣은 내용 반영</button>
+            {pasteMsg && <span className="small-dim">{pasteMsg}</span>}
+          </div>
+          <div className="table-wrap" style={{ maxHeight: 460, marginTop: 10 }}>
+            <table>
+              <thead><tr><th>ID</th><th>이름</th><th>아이디</th><th>비밀번호</th></tr></thead>
+              <tbody>
+                {students.map((st) => {
+                  const a = cfg.accounts[tool.id]?.[st.id] || { loginId: '', password: '' };
+                  return (
+                    <tr key={st.id}>
+                      <td className="mono">{st.id}</td>
+                      <td>{st.name || <span className="small-dim">(이름 미입력)</span>}</td>
+                      <td><input type="text" style={{ minWidth: 190 }} autoComplete="off" value={a.loginId} onChange={(e) => setAccount(tool.id, st.id, 'loginId', e.target.value)} /></td>
+                      <td><input type="text" style={{ minWidth: 150 }} autoComplete="off" value={a.password} onChange={(e) => setAccount(tool.id, st.id, 'password', e.target.value)} /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div className="panel" style={{ position: 'sticky', bottom: 8, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <button className="btn" onClick={save} disabled={saving || !dirty}>{saving ? '저장 중…' : '저장'}</button>
+        <span className="small-dim">{dirty ? '저장하지 않은 변경이 있습니다.' : '변경 사항이 모두 저장되었습니다.'} 계정 정보(비밀번호 포함)는 서버의 비공개 저장소에 보관되며 관리자와 해당 교육생 본인에게만 보입니다.</span>
+      </div>
+    </>
   );
 }
 

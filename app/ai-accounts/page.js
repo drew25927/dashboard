@@ -1,0 +1,83 @@
+import { redirect } from 'next/navigation';
+import { supabaseAdmin } from '../../lib/supabaseAdmin';
+import { getSettings } from '../../lib/settings';
+import { getAuthorizedAdmin } from '../../lib/adminAuth';
+import { getAuthorizedStudent } from '../../lib/studentAuth';
+import { getAiConfig, viewFor } from '../../lib/aiAccounts';
+import { SecretRow } from './AccountsClient';
+
+export const dynamic = 'force-dynamic';
+
+// 교육생은 로그인한 본인에게 배정된 계정만 볼 수 있음. 관리자는 ?id= 로 교육생 화면을 미리보기.
+export default async function AiAccountsPage({ searchParams }) {
+  const sp = await searchParams;
+  const [admin, student] = await Promise.all([getAuthorizedAdmin(), getAuthorizedStudent()]);
+
+  let target = student;
+  let preview = false;
+  if (!target && admin && sp?.id) {
+    const { data } = await supabaseAdmin().from('students').select('id,name').eq('id', sp.id).maybeSingle();
+    target = data;
+    preview = true;
+  }
+  if (!target) redirect(admin ? '/admin' : '/login');
+
+  const [cfg, settings] = await Promise.all([getAiConfig(), getSettings()]);
+  const view = viewFor(cfg, target.id);
+  const empty = !view.common && view.tools.length === 0;
+
+  return (
+    <div className="page">
+      <div className="topbar">
+        <span className="badge-mode">생성형 AI 계정</span>
+        <a href={preview ? '/?id=' + target.id : '/'}>← Home</a>
+      </div>
+      <div className="banner">
+        <div>
+          <h1>{settings.courseTitle}</h1>
+          <div className="sub">{target.name}님의 생성형 AI 계정{preview ? ' (관리자 미리보기)' : ''}</div>
+        </div>
+      </div>
+
+      {empty && <div className="panel"><div className="empty">아직 등록된 안내가 없습니다.</div></div>}
+
+      {view.common && (
+        <div className="notice-box" style={{ marginBottom: 16 }}>
+          <b>공통 주의사항</b>
+          <div style={{ marginTop: 6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{view.common}</div>
+        </div>
+      )}
+
+      {view.tools.map((t) => (
+        <div className="panel" key={t.id}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+            <h2 style={{ margin: 0 }}>{t.name || '(이름 없음)'}</h2>
+            {t.url && <a className="btn small" href={t.url} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>열기 →</a>}
+          </div>
+          {t.purpose && <div className="small-dim" style={{ marginBottom: 10 }}>{t.purpose}</div>}
+
+          <div className="acc-box">
+            {t.account ? (
+              <>
+                {t.account.kind === 'shared' && <div className="small-dim" style={{ marginBottom: 6 }}>모든 교육생이 함께 쓰는 공용 계정입니다.</div>}
+                <SecretRow label="아이디" value={t.account.loginId} />
+                <SecretRow label="비밀번호" value={t.account.password} secret />
+              </>
+            ) : (
+              <div className="small-dim">아직 배정된 계정이 없습니다. 운영 담당자에게 문의해 주세요.</div>
+            )}
+          </div>
+
+          {t.cautions && (
+            <div className="acc-caution">
+              <b>⚠ 주의사항</b>
+              <div style={{ marginTop: 4, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{t.cautions}</div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      <div className="small-dim" style={{ textAlign: 'center' }}>계정 정보는 본인만 볼 수 있습니다. 다른 사람에게 알려주거나 캡처해서 공유하지 마세요.</div>
+    </div>
+  );
+}

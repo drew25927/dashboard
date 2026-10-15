@@ -4,6 +4,7 @@ import { getSettings } from '../../lib/settings';
 import { fmtKoreanDate, isLessonOpen, kstToday, lessonTimeRange } from '../../lib/lesson';
 import { findStudent, getSubmissionData } from '../../lib/drive';
 import { hasAssignment } from '../../lib/assignments';
+import { getAiConfig } from '../../lib/aiAccounts';
 import LogoutButton from './LogoutButton';
 
 const BUTTON_ORDER = ['zoom', 'venue', 'office', 'submit', 'notice', 'replay', 'feedback'];
@@ -79,7 +80,14 @@ async function getStudentData(id) {
     }
   } catch (e) { /* 제출 현황을 못 읽어도 대시보드는 그대로 보여줌 */ }
 
-  return { student, stats, rows, upcomingLessons, submission, links: sortedLinks, qrCodes: qrCodes || [], notice: noticeRow?.content || '', unseenFeedback };
+  // 생성형 AI 계정·주의사항 안내가 등록돼 있으면 버튼을 보여줌
+  let hasAiInfo = false;
+  try {
+    const ai = await getAiConfig();
+    hasAiInfo = ai.tools.length > 0 || Boolean(ai.common);
+  } catch (e) { /* 읽지 못하면 버튼만 숨김 */ }
+
+  return { student, stats, rows, upcomingLessons, submission, hasAiInfo, links: sortedLinks, qrCodes: qrCodes || [], notice: noticeRow?.content || '', unseenFeedback };
 }
 
 // 링크가 설정돼 있으면 카드 전체를 눌러 새 탭으로 이동, 없으면 그냥 표시만
@@ -125,7 +133,7 @@ export default async function StudentDashboard({ id, previewMode }) {
     );
   }
 
-  const { student, stats, rows, upcomingLessons, submission, links, qrCodes, notice, unseenFeedback } = data;
+  const { student, stats, rows, upcomingLessons, submission, hasAiInfo, links, qrCodes, notice, unseenFeedback } = data;
   const qrByKey = new Map(qrCodes.map((q) => [q.key, q]));
   const attendanceQr = qrByKey.get('attendance');
   const submitQr = qrByKey.get('submit');
@@ -188,6 +196,9 @@ export default async function StudentDashboard({ id, previewMode }) {
                 </a>
               );
             })}
+            {hasAiInfo && (
+              <a className="btn-tile" href={previewMode ? '/ai-accounts?id=' + student.id : '/ai-accounts'}>생성형 AI 계정</a>
+            )}
           </div>
 
           <div className="qr-row">
