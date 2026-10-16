@@ -58,11 +58,18 @@ export default async function AiAccountsPage({ searchParams }) {
                 {view.google.kind === 'shared' && <div className="small-dim" style={{ marginBottom: 6 }}>모든 교육생이 함께 쓰는 공용 계정입니다.</div>}
                 <SecretRow label="아이디" value={view.google.loginId} />
                 <SecretRow label="비밀번호" value={view.google.password} secret />
+                {view.google.note && <div className="acc-row"><span className="acc-label">이용 기간</span><span className="acc-value">{view.google.note}</span></div>}
               </>
             ) : (
               <div className="small-dim">아직 배정된 계정이 없습니다. 운영 담당자에게 문의해 주세요.</div>
             )}
           </div>
+          {view.mailUrl && (
+            <div style={{ marginTop: 10 }}>
+              <a className="btn small" href={view.mailUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>로그인 코드 메일함 열기 →</a>
+              <div className="small-dim" style={{ marginTop: 6 }}>로그인할 때 인증 코드가 필요하면 이 메일함에서 확인하세요. 메일함의 아이디·비밀번호는 위 구글 계정과 같습니다.</div>
+            </div>
+          )}
         </div>
       )}
 

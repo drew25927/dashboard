@@ -919,7 +919,7 @@ function AiAccountsPanel({ students, showToast }) {
   }
   function setGoogle(studentId, field, value) {
     update((c) => {
-      const a = c.google.students[studentId] || { loginId: '', password: '' };
+      const a = c.google.students[studentId] || { loginId: '', password: '', note: '' };
       a[field] = value;
       c.google.students[studentId] = a;
     });
@@ -932,10 +932,10 @@ function AiAccountsPanel({ students, showToast }) {
       for (const line of paste.split('\n')) {
         if (!line.trim()) continue;
         const cols = line.split(/\t|,/).map((x) => x.trim());
-        const [key, loginId, password] = cols;
+        const [key, loginId, password, note] = cols;
         const st = students.find((s) => s.id === key || norm(s.name) === norm(key));
         if (!st || (!loginId && !password)) { miss.push(key || '(빈 줄)'); continue; }
-        c.google.students[st.id] = { loginId: loginId || '', password: password || '' };
+        c.google.students[st.id] = { loginId: loginId || '', password: password || '', note: note || '' };
         ok++;
       }
     });
@@ -981,12 +981,14 @@ function AiAccountsPanel({ students, showToast }) {
 
       <div className="panel">
         <h2>구글 계정 (모든 서비스 공통)</h2>
+        <label className="small-dim">로그인 코드 메일함 주소 (선택 — 교육생 화면에 [로그인 코드 메일함 열기] 버튼으로 표시)</label>
+        <input type="text" style={{ width: '100%', margin: '6px 0 12px' }} placeholder="https://…" value={cfg.google.mailUrl || ''} onChange={(e) => update((c) => { c.google.mailUrl = e.target.value; })} />
         <label className="small-dim">공용 계정 (선택 — 교육생별 계정이 없는 사람에게 대신 보여줍니다)</label>
         <div className="row" style={{ marginTop: 6 }}>
           <input type="text" placeholder="공용 구글 아이디" autoComplete="off" value={cfg.google.shared.loginId} onChange={(e) => update((c) => { c.google.shared.loginId = e.target.value; })} />
           <input type="text" placeholder="공용 비밀번호" autoComplete="off" value={cfg.google.shared.password} onChange={(e) => update((c) => { c.google.shared.password = e.target.value; })} />
         </div>
-        <p className="small-dim" style={{ margin: '10px 0 6px' }}>교육생별 계정 — 엑셀에서 복사해 붙여넣을 수 있습니다. 한 줄에 <b>이름(또는 ID) ↹ 아이디 ↹ 비밀번호</b> 형식입니다.</p>
+        <p className="small-dim" style={{ margin: '10px 0 6px' }}>교육생별 계정 — 엑셀에서 복사해 붙여넣을 수 있습니다. 한 줄에 <b>이름(또는 ID) ↹ 아이디 ↹ 비밀번호 ↹ (선택) 이용 기간·메모</b> 형식입니다.</p>
         <textarea rows={3} style={taStyle} placeholder={'강영화\tkang@gmail.com\tpassword123'} value={paste} onChange={(e) => setPaste(e.target.value)} />
         <div className="row" style={{ marginTop: 8 }}>
           <button className="btn small ghost" onClick={applyPaste} disabled={!paste.trim()}>붙여넣은 내용 반영</button>
@@ -994,16 +996,17 @@ function AiAccountsPanel({ students, showToast }) {
         </div>
         <div className="table-wrap" style={{ maxHeight: 460, marginTop: 10 }}>
           <table>
-            <thead><tr><th>ID</th><th>이름</th><th>구글 아이디</th><th>비밀번호</th></tr></thead>
+            <thead><tr><th>ID</th><th>이름</th><th>구글 아이디</th><th>비밀번호</th><th>이용 기간 · 메모</th></tr></thead>
             <tbody>
               {students.map((st) => {
-                const a = cfg.google.students[st.id] || { loginId: '', password: '' };
+                const a = cfg.google.students[st.id] || { loginId: '', password: '', note: '' };
                 return (
                   <tr key={st.id}>
                     <td className="mono">{st.id}</td>
                     <td>{st.name || <span className="small-dim">(이름 미입력)</span>}</td>
                     <td><input type="text" style={{ minWidth: 200 }} autoComplete="off" value={a.loginId} onChange={(e) => setGoogle(st.id, 'loginId', e.target.value)} /></td>
                     <td><input type="text" style={{ minWidth: 150 }} autoComplete="off" value={a.password} onChange={(e) => setGoogle(st.id, 'password', e.target.value)} /></td>
+                    <td><input type="text" style={{ minWidth: 190 }} placeholder="예) 2026.10.14 ~ 2026.12.13" value={a.note || ''} onChange={(e) => setGoogle(st.id, 'note', e.target.value)} /></td>
                   </tr>
                 );
               })}
