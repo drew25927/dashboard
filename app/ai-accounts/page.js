@@ -43,7 +43,7 @@ export default async function AiAccountsPage({ searchParams }) {
 
       {view.common && (
         <div className="notice-box" style={{ marginBottom: 16 }}>
-          <b>공통 주의사항</b>
+          <b>공통 안내</b>
           <div style={{ marginTop: 6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{view.common}</div>
         </div>
       )}

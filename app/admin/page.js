@@ -975,7 +975,7 @@ function AiAccountsPanel({ students, showToast }) {
         <p className="small-dim" style={{ marginBottom: 12 }}>
           교육생 대시보드에 <b>"생성형 AI 계정"</b> 버튼이 생기고, 교육생은 <b>본인 구글 계정</b>과 서비스별 주의사항을 볼 수 있습니다(비밀번호는 [보기]를 눌러야 보임, 다른 교육생 계정은 보이지 않음). 모든 서비스에 같은 구글 계정으로 로그인하는 구조라서 계정은 교육생당 하나만 입력합니다. 입력한 뒤 아래 <b>[저장]</b>을 눌러야 적용됩니다.
         </p>
-        <label className="small-dim">공통 주의사항 (맨 위에 표시)</label>
+        <label className="small-dim">공통 안내 · 주의사항 (맨 위에 표시)</label>
         <textarea rows={4} style={{ ...taStyle, marginTop: 6 }} maxLength={3000} placeholder="예) 계정은 본인만 사용하세요. 비밀번호를 바꾸거나 다른 사람과 공유하지 마세요." value={cfg.common} onChange={(e) => update((c) => { c.common = e.target.value; })} />
       </div>
 
