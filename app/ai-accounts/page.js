@@ -63,7 +63,6 @@ export default async function AiAccountsPage({ searchParams }) {
                 {view.google.kind === 'shared' && <div className="small-dim" style={{ marginBottom: 6 }}>모든 교육생이 함께 쓰는 공용 계정입니다.</div>}
                 <SecretRow label="아이디" value={view.google.loginId} />
                 <SecretRow label="비밀번호" value={view.google.password} secret />
-                {view.google.note && <div className="acc-row"><span className="acc-label">이용 기간</span><span className="acc-value">{view.google.note}</span></div>}
               </>
             ) : (
               <div className="small-dim">아직 배정된 계정이 없습니다. 운영 담당자에게 문의해 주세요.</div>

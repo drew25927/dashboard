@@ -996,7 +996,7 @@ function AiAccountsPanel({ students, showToast }) {
         </div>
         <div className="table-wrap" style={{ maxHeight: 460, marginTop: 10 }}>
           <table>
-            <thead><tr><th>ID</th><th>이름</th><th>구글 아이디</th><th>비밀번호</th><th>이용 기간 · 메모</th></tr></thead>
+            <thead><tr><th>ID</th><th>이름</th><th>구글 아이디</th><th>비밀번호</th><th>이용 기간 · 메모 (관리자 전용)</th></tr></thead>
             <tbody>
               {students.map((st) => {
                 const a = cfg.google.students[st.id] || { loginId: '', password: '', note: '' };
