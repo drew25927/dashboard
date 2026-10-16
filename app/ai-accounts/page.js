@@ -8,6 +8,11 @@ import { SecretRow } from './AccountsClient';
 
 export const dynamic = 'force-dynamic';
 
+// **굵게** 로 감싼 부분은 빨간색 굵은 글씨로 강조해서 보여줌
+function Emph({ text }) {
+  return String(text).split('**').map((part, i) => (i % 2 === 1 ? <strong key={i} style={{ color: 'var(--danger)' }}>{part}</strong> : <span key={i}>{part}</span>));
+}
+
 // 교육생은 로그인한 본인에게 배정된 계정만 볼 수 있음. 관리자는 ?id= 로 교육생 화면을 미리보기.
 export default async function AiAccountsPage({ searchParams }) {
   const sp = await searchParams;
@@ -85,7 +90,7 @@ export default async function AiAccountsPage({ searchParams }) {
           {t.cautions && (
             <div className="acc-caution">
               <b>⚠ 주의사항</b>
-              <div style={{ marginTop: 4, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{t.cautions}</div>
+              <div style={{ marginTop: 4, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}><Emph text={t.cautions} /></div>
             </div>
           )}
         </div>

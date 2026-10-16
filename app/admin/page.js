@@ -1038,7 +1038,7 @@ function AiAccountsPanel({ students, showToast }) {
               <button className="btn small danger" onClick={() => removeTool(tool.id)}>서비스 삭제</button>
             </div>
             <div className="row"><input type="text" placeholder="용도 (예: 이미지·영상 생성)" style={{ width: '100%' }} maxLength={200} value={tool.purpose} onChange={(e) => setToolField(tool.id, 'purpose', e.target.value)} /></div>
-            <label className="small-dim">이 서비스의 주의사항</label>
+            <label className="small-dim">이 서비스의 주의사항 (<span className="mono">**강조할 문구**</span>처럼 별표 두 개로 감싸면 교육생 화면에서 빨간 굵은 글씨로 보입니다)</label>
             <textarea rows={5} style={{ ...taStyle, marginTop: 6 }} maxLength={3000} placeholder="예) 크레딧은 1인당 한도가 있습니다. 핵심 컷부터 생성하세요. 실존 인물·브랜드 무단 사용 금지." value={tool.cautions} onChange={(e) => setToolField(tool.id, 'cautions', e.target.value)} />
           </div>
         )}
