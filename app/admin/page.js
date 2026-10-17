@@ -890,7 +890,7 @@ function AiAccountsPanel({ students, showToast }) {
 
   function addTool() {
     const id = newId();
-    update((c) => { c.tools.push({ id, name: '', url: '', purpose: '', cautions: '' }); });
+    update((c) => { c.tools.push({ id, name: '', url: '', purpose: '', loginHow: '', cautions: '' }); });
     setActiveTool(id);
   }
   function addDefaults() {
@@ -904,7 +904,7 @@ function AiAccountsPanel({ students, showToast }) {
       for (const p of presets) {
         const id = newId();
         if (!first) first = id;
-        c.tools.push({ id, name: p.name, url: p.url, purpose: p.purpose, cautions: '' });
+        c.tools.push({ id, name: p.name, url: p.url, purpose: p.purpose, loginHow: '', cautions: '' });
       }
     });
     setActiveTool(first);
@@ -1016,6 +1016,15 @@ function AiAccountsPanel({ students, showToast }) {
       </div>
 
       <div className="panel">
+        <h2>사용 방법 · 인증 해결 방법</h2>
+        <p className="small-dim" style={{ marginBottom: 10 }}>교육생 화면에 각각 "생성형 AI 계정 사용 방법"과 "구글 로그인 인증 시 해결 방법" 카드로 표시됩니다. 줄바꿈이 그대로 보이고, <span className="mono">**강조할 문구**</span>는 빨간 굵은 글씨가 됩니다. 비워 두면 카드가 보이지 않습니다.</p>
+        <label className="small-dim">생성형 AI 계정 사용 방법</label>
+        <textarea rows={6} style={{ ...taStyle, margin: '6px 0 12px' }} maxLength={3000} placeholder={'1. 지급된 계정으로 구글 로그인\n2. …'} value={cfg.guide || ''} onChange={(e) => update((c) => { c.guide = e.target.value; })} />
+        <label className="small-dim">구글 로그인 인증 시 해결 방법</label>
+        <textarea rows={6} style={{ ...taStyle, marginTop: 6 }} maxLength={3000} value={cfg.help || ''} onChange={(e) => update((c) => { c.help = e.target.value; })} />
+      </div>
+
+      <div className="panel">
         <h2>서비스별 안내 · 주의사항</h2>
         {cfg.tools.length === 0 && (
           <div className="empty">
@@ -1037,6 +1046,7 @@ function AiAccountsPanel({ students, showToast }) {
               <input type="text" placeholder="접속 주소 (https://…)" style={{ flex: 1, minWidth: 220 }} maxLength={300} value={tool.url} onChange={(e) => setToolField(tool.id, 'url', e.target.value)} />
               <button className="btn small danger" onClick={() => removeTool(tool.id)}>서비스 삭제</button>
             </div>
+            <div className="row"><input type="text" placeholder="로그인 방법 (예: 로그인 → 구글로 계속하기)" style={{ width: '100%' }} maxLength={200} value={tool.loginHow || ''} onChange={(e) => setToolField(tool.id, 'loginHow', e.target.value)} /></div>
             <div className="row"><input type="text" placeholder="용도 (예: 이미지·영상 생성)" style={{ width: '100%' }} maxLength={200} value={tool.purpose} onChange={(e) => setToolField(tool.id, 'purpose', e.target.value)} /></div>
             <label className="small-dim">이 서비스의 주의사항 (<span className="mono">**강조할 문구**</span>처럼 별표 두 개로 감싸면 교육생 화면에서 빨간 굵은 글씨로 보입니다)</label>
             <textarea rows={5} style={{ ...taStyle, marginTop: 6 }} maxLength={3000} placeholder="예) 크레딧은 1인당 한도가 있습니다. 핵심 컷부터 생성하세요. 실존 인물·브랜드 무단 사용 금지." value={tool.cautions} onChange={(e) => setToolField(tool.id, 'cautions', e.target.value)} />

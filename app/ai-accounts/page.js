@@ -29,7 +29,7 @@ export default async function AiAccountsPage({ searchParams }) {
 
   const [cfg, settings] = await Promise.all([getAiConfig(), getSettings()]);
   const view = viewFor(cfg, target.id);
-  const empty = !view.common && view.tools.length === 0 && !view.hasGoogleSection;
+  const empty = !view.common && view.tools.length === 0 && !view.hasGoogleSection && !view.guide && !view.help;
 
   return (
     <div className="page">
@@ -77,6 +77,20 @@ export default async function AiAccountsPage({ searchParams }) {
         </div>
       )}
 
+      {view.guide && (
+        <div className="panel">
+          <h2 style={{ marginBottom: 8 }}>생성형 AI 계정 사용 방법</h2>
+          <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: 13.5, lineHeight: 1.9 }}><Emph text={view.guide} /></div>
+        </div>
+      )}
+
+      {view.help && (
+        <div className="panel">
+          <h2 style={{ marginBottom: 8 }}>구글 로그인 인증 시 해결 방법</h2>
+          <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: 13.5, lineHeight: 1.9 }}><Emph text={view.help} /></div>
+        </div>
+      )}
+
       {view.tools.map((t) => (
         <div className="panel" key={t.id}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
@@ -84,7 +98,9 @@ export default async function AiAccountsPage({ searchParams }) {
             {t.url && <a className="btn small" href={t.url} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>열기 →</a>}
           </div>
           {t.purpose && <div className="small-dim" style={{ marginBottom: 10 }}>{t.purpose}</div>}
-          {view.google && <div className="small-dim" style={{ marginBottom: 10 }}>로그인: 위의 구글 계정으로 <b>Google로 계속하기</b>를 선택하세요.</div>}
+          {t.loginHow
+            ? <div style={{ marginBottom: 10, fontSize: 13 }}><b>로그인 방법</b>: {t.loginHow}</div>
+            : view.google && <div className="small-dim" style={{ marginBottom: 10 }}>로그인: 위의 구글 계정으로 <b>Google로 계속하기</b>를 선택하세요.</div>}
 
           {t.cautions && (
             <div className="acc-caution">
