@@ -983,6 +983,8 @@ function AiAccountsPanel({ students, showToast }) {
         <h2>구글 계정 (모든 서비스 공통)</h2>
         <label className="small-dim">로그인 코드 메일함 주소 (선택 — 교육생 화면에 [로그인 코드 메일함 열기] 버튼으로 표시)</label>
         <input type="text" style={{ width: '100%', margin: '6px 0 12px' }} placeholder="https://…" value={cfg.google.mailUrl || ''} onChange={(e) => update((c) => { c.google.mailUrl = e.target.value; })} />
+        <label className="small-dim">최종 이용 종료일 (모든 교육생 공통 — 첫 달 기간이 끝난 뒤 교육생 화면에 "다음 기간 ~ 이 날짜"로 표시)</label>
+        <input type="text" style={{ width: '100%', margin: '6px 0 12px' }} placeholder="예) 2026.11.28" value={cfg.google.finalEnd || ''} onChange={(e) => update((c) => { c.google.finalEnd = e.target.value; })} />
         <label className="small-dim">공용 계정 (선택 — 교육생별 계정이 없는 사람에게 대신 보여줍니다)</label>
         <div className="row" style={{ marginTop: 6 }}>
           <input type="text" placeholder="공용 구글 아이디" autoComplete="off" value={cfg.google.shared.loginId} onChange={(e) => update((c) => { c.google.shared.loginId = e.target.value; })} />
@@ -996,7 +998,7 @@ function AiAccountsPanel({ students, showToast }) {
         </div>
         <div className="table-wrap" style={{ maxHeight: 460, marginTop: 10 }}>
           <table>
-            <thead><tr><th>ID</th><th>이름</th><th>구글 아이디</th><th>비밀번호</th><th>이용 기간 · 메모 (관리자 전용)</th></tr></thead>
+            <thead><tr><th>ID</th><th>이름</th><th>구글 아이디</th><th>비밀번호</th><th>이용 기간 · 메모 (첫 날짜=시작일, 교육생에게는 시작일부터 한 달 기간으로 표시)</th></tr></thead>
             <tbody>
               {students.map((st) => {
                 const a = cfg.google.students[st.id] || { loginId: '', password: '', note: '' };
@@ -1013,6 +1015,29 @@ function AiAccountsPanel({ students, showToast }) {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="panel">
+        <h2>관리자 · 강사 계정 (관리자 전용)</h2>
+        <p className="small-dim" style={{ marginBottom: 10 }}>최미경·신진수·송광호 등 운영진의 계정을 기록해 두는 곳입니다. 교육생에게는 전달되지 않고 이 화면에서만 보입니다.</p>
+        <div className="table-wrap" style={{ maxHeight: 300 }}>
+          <table>
+            <thead><tr><th>이름</th><th>구글 아이디</th><th>비밀번호</th><th>이용 기간 · 메모</th><th></th></tr></thead>
+            <tbody>
+              {(cfg.staff || []).length === 0 && <tr><td colSpan={5} className="empty">등록된 계정이 없습니다.</td></tr>}
+              {(cfg.staff || []).map((s, i) => (
+                <tr key={s.id || i}>
+                  <td><input type="text" style={{ width: 90 }} value={s.name} onChange={(e) => update((c) => { c.staff[i].name = e.target.value; })} /></td>
+                  <td><input type="text" style={{ minWidth: 200 }} autoComplete="off" value={s.loginId} onChange={(e) => update((c) => { c.staff[i].loginId = e.target.value; })} /></td>
+                  <td><input type="text" style={{ minWidth: 140 }} autoComplete="off" value={s.password} onChange={(e) => update((c) => { c.staff[i].password = e.target.value; })} /></td>
+                  <td><input type="text" style={{ minWidth: 190 }} value={s.note || ''} onChange={(e) => update((c) => { c.staff[i].note = e.target.value; })} /></td>
+                  <td><button className="btn small danger" onClick={() => update((c) => { c.staff.splice(i, 1); })}>삭제</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="row" style={{ marginTop: 8 }}><button className="btn small ghost" onClick={() => update((c) => { c.staff = c.staff || []; c.staff.push({ id: newId(), name: '', loginId: '', password: '', note: '' }); })}>+ 계정 추가</button></div>
       </div>
 
       <div className="panel">

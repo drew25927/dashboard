@@ -102,10 +102,11 @@ export default async function AiAccountsPage({ searchParams }) {
             ? <div style={{ marginBottom: 10, fontSize: 13 }}><b>로그인 방법</b>: {t.loginHow}</div>
             : view.google && <div className="small-dim" style={{ marginBottom: 10 }}>로그인: 위의 구글 계정으로 <b>Google로 계속하기</b>를 선택하세요.</div>}
 
-          {t.cautions && (
+          {(t.cautions || view.period) && (
             <div className="acc-caution">
               <b>⚠ 주의사항</b>
-              <div style={{ marginTop: 4, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}><Emph text={t.cautions} /></div>
+              {view.period && <div style={{ marginTop: 4 }}><strong>이용 기간: {view.period}</strong></div>}
+              {t.cautions && <div style={{ marginTop: 4, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}><Emph text={t.cautions} /></div>}
             </div>
           )}
         </div>
