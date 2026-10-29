@@ -1019,6 +1019,7 @@ function AiAccountsPanel({ students, showToast }) {
 
       <div className="panel">
         <h2>관리자 · 강사 계정 (관리자 전용)</h2>
+        <div style={{ marginBottom: 10 }}><a className="btn small ghost" href="/ai-accounts" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>강사에게 보이는 화면 열기 →</a></div>
         <p className="small-dim" style={{ marginBottom: 10 }}>최미경·신진수·송광호 등 운영진의 계정을 기록해 두는 곳입니다. 교육생에게는 전달되지 않고 이 화면에서만 보입니다.</p>
         <div className="table-wrap" style={{ maxHeight: 300 }}>
           <table>

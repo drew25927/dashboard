@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { getSettings } from '../../lib/settings';
 import { getAuthorizedAdmin } from '../../lib/adminAuth';
 import { getAuthorizedStudent } from '../../lib/studentAuth';
-import { getAiConfig, viewFor } from '../../lib/aiAccounts';
+import { getAiConfig, viewFor, viewForStaff } from '../../lib/aiAccounts';
 import { SecretRow } from './AccountsClient';
 
 export const dynamic = 'force-dynamic';
@@ -25,22 +25,24 @@ export default async function AiAccountsPage({ searchParams }) {
     target = data;
     preview = true;
   }
-  if (!target) redirect(admin ? '/admin' : '/login');
+  // 관리자(강사)가 ?id= 없이 열면 운영진 계정 화면
+  const staffMode = !target && Boolean(admin);
+  if (!target && !staffMode) redirect('/login');
 
   const [cfg, settings] = await Promise.all([getAiConfig(), getSettings()]);
-  const view = viewFor(cfg, target.id);
-  const empty = !view.common && view.tools.length === 0 && !view.hasGoogleSection && !view.guide && !view.help;
+  const view = staffMode ? viewForStaff(cfg, admin.name) : viewFor(cfg, target.id);
+  const empty = !view.common && view.tools.length === 0 && !view.hasGoogleSection && !view.guide && !view.help && !(view.staff && view.staff.length);
 
   return (
     <div className="page">
       <div className="topbar">
         <span className="badge-mode">생성형 AI 계정</span>
-        <a href={preview ? '/?id=' + target.id : '/'}>← Home</a>
+        <a href={staffMode ? '/admin' : preview ? '/?id=' + target.id : '/'}>{staffMode ? '← 관리자 화면' : '← Home'}</a>
       </div>
       <div className="banner">
         <div>
           <h1>{settings.courseTitle}</h1>
-          <div className="sub">{target.name}님의 생성형 AI 계정{preview ? ' (관리자 미리보기)' : ''}</div>
+          <div className="sub">{staffMode ? '운영진(관리자·강사) 생성형 AI 계정' : target.name + '님의 생성형 AI 계정' + (preview ? ' (관리자 미리보기)' : '')}</div>
         </div>
       </div>
 
@@ -53,7 +55,28 @@ export default async function AiAccountsPage({ searchParams }) {
         </div>
       )}
 
-      {(view.google || view.hasGoogleSection) && (
+      {staffMode && (
+        <div className="panel">
+          <h2 style={{ marginBottom: 6 }}>운영진 구글 계정</h2>
+          <div className="small-dim" style={{ marginBottom: 10 }}>관리자·강사용 계정입니다. 교육생에게는 보이지 않습니다. 아래 서비스에는 모두 이 구글 계정으로 로그인합니다.</div>
+          {view.staff.length === 0 && <div className="empty">등록된 계정이 없습니다.</div>}
+          {view.staff.map((s) => (
+            <div key={s.id} className="acc-box">
+              <div style={{ marginBottom: 6, fontWeight: 700, fontSize: 13.5 }}>{s.name}{s.mine && <span className="badge-status ok" style={{ marginLeft: 8 }}>내 계정</span>}</div>
+              <SecretRow label="아이디" value={s.loginId} />
+              <SecretRow label="비밀번호" value={s.password} secret />
+              {s.period && <div className="acc-row"><span className="acc-label">이용 기간</span><span className="acc-value">{s.period}</span></div>}
+            </div>
+          ))}
+          {view.mailUrl && (
+            <div style={{ marginTop: 10 }}>
+              <a className="btn small" href={view.mailUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>로그인 코드 메일함 열기 →</a>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!staffMode && (view.google || view.hasGoogleSection) && (
         <div className="panel">
           <h2 style={{ marginBottom: 6 }}>구글 계정</h2>
           <div className="small-dim" style={{ marginBottom: 10 }}>아래 서비스에는 모두 이 구글 계정으로 로그인해서 사용합니다.</div>
@@ -100,7 +123,7 @@ export default async function AiAccountsPage({ searchParams }) {
           {t.purpose && <div className="small-dim" style={{ marginBottom: 10 }}>{t.purpose}</div>}
           {t.loginHow
             ? <div style={{ marginBottom: 10, fontSize: 13 }}><b>로그인 방법</b>: {t.loginHow}</div>
-            : view.google && <div className="small-dim" style={{ marginBottom: 10 }}>로그인: 위의 구글 계정으로 <b>Google로 계속하기</b>를 선택하세요.</div>}
+            : (view.google || staffMode) && <div className="small-dim" style={{ marginBottom: 10 }}>로그인: 위의 구글 계정으로 <b>Google로 계속하기</b>를 선택하세요.</div>}
 
           {(t.cautions || view.period) && (
             <div className="acc-caution">
@@ -112,7 +135,7 @@ export default async function AiAccountsPage({ searchParams }) {
         </div>
       ))}
 
-      <div className="small-dim" style={{ textAlign: 'center' }}>계정 정보는 본인만 볼 수 있습니다. 다른 사람에게 알려주거나 캡처해서 공유하지 마세요.</div>
+      <div className="small-dim" style={{ textAlign: 'center' }}>{staffMode ? '운영진 계정 정보입니다. 교육생에게 알려주거나 캡처해서 공유하지 마세요.' : '계정 정보는 본인만 볼 수 있습니다. 다른 사람에게 알려주거나 캡처해서 공유하지 마세요.'}</div>
     </div>
   );
 }
