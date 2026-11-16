@@ -258,6 +258,25 @@ function AttendPanel({ sessions, students, attendance, loadAll, showToast }) {
     }
   }
 
+  async function reset(all) {
+    const label = all ? '전체 회차' : session.n + '회차';
+    const cnt = attendance.filter((a) => all || a.session_n === session.n).length;
+    if (!cnt) { showToast(label + '에는 초기화할 출석 기록이 없습니다'); return; }
+    if (!confirm(label + ' 출석 기록 ' + cnt + '건을 모두 지울까요?\n지운 기록은 되돌릴 수 없습니다. (교육생 명단·회차 일정은 그대로 유지됩니다)')) return;
+    if (all && !confirm('정말 전체 회차의 출석 기록을 초기화할까요?')) return;
+    setSaving(true);
+    try {
+      await apiCall('/api/admin/attendance?' + (all ? 'all=1' : 'session=' + session.n), { method: 'DELETE' });
+      setPicks({});
+      await loadAll();
+      showToast(label + ' 출석 기록을 초기화했습니다');
+    } catch (err) {
+      showToast('초기화 실패: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="panel">
       <h2>회차별 출석체크</h2>
@@ -297,6 +316,9 @@ function AttendPanel({ sessions, students, attendance, loadAll, showToast }) {
       {students.length > 0 && (
         <div className="row" style={{ marginTop: 12 }}>
           <button className="btn" onClick={save} disabled={saving}>{saving ? '저장 중…' : '저장'}</button>
+          <button className="btn ghost" onClick={() => setPicks({})} disabled={saving}>선택 취소</button>
+          <button className="btn danger" onClick={() => reset(false)} disabled={saving}>{session.n}회차 초기화</button>
+          <button className="btn danger" onClick={() => reset(true)} disabled={saving}>전체 초기화</button>
         </div>
       )}
     </div>
