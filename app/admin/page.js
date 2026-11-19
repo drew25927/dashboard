@@ -25,7 +25,9 @@ async function apiCall(url, options = {}) {
   let json = null;
   try { json = await res.json(); } catch (e) { /* no body */ }
   if (!res.ok) {
-    throw new Error((json && json.error) || ('요청 실패 (' + res.status + ')'));
+    const err = new Error((json && json.error) || ('요청 실패 (' + res.status + ')'));
+    err.status = res.status;
+    throw err;
   }
   return json;
 }
@@ -51,6 +53,12 @@ export default function AdminPage() {
         return ids[0] || '';
       });
     } catch (err) {
+      // 로그인이 풀렸거나 예전 방식 쿠키라면 오류 화면 대신 로그인 화면으로 보낸다
+      if (err.status === 401) {
+        await fetch('/api/admin/logout', { method: 'POST' }).catch(() => {});
+        window.location.href = '/login';
+        return;
+      }
       setLoadError(err.message);
     }
   }, []);
