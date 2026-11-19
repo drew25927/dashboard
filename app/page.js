@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import StudentDashboard from './_components/StudentDashboard';
 import { getAuthorizedAdmin } from '../lib/adminAuth';
 import { getAuthorizedStudent } from '../lib/studentAuth';
+import { supabaseAdmin } from '../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // 하루 3번 시각이 지난 뒤 첫 접속 때 백그라운드로 드라이브를 읽음
@@ -21,7 +22,14 @@ export default async function RootPage({ searchParams }) {
   }
 
   if (admin) {
-    if (previewId) return <StudentDashboard id={previewId} previewMode />;
+    if (previewId) {
+      // 담당 교육이 아닌 교육의 교육생 화면은 미리볼 수 없다 (마스터는 전부 가능)
+      if (admin.id !== 'master') {
+        const { data: s } = await supabaseAdmin().from('students').select('course_id').eq('id', String(previewId)).maybeSingle();
+        if (!s || !(admin.course_ids || []).includes(s.course_id)) redirect('/admin');
+      }
+      return <StudentDashboard id={previewId} previewMode />;
+    }
     redirect('/admin');
   }
 

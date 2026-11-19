@@ -5,6 +5,7 @@ import { getAuthorizedAdmin } from '../../lib/adminAuth';
 import { getAuthorizedStudent } from '../../lib/studentAuth';
 import { getAiConfig, viewFor, viewForStaff } from '../../lib/aiAccounts';
 import { SecretRow } from './AccountsClient';
+import { COURSE_ID_RE, MAIN_COURSE } from '../../lib/courses';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,18 +19,21 @@ export default async function AiAccountsPage({ searchParams }) {
   const sp = await searchParams;
   const [admin, student] = await Promise.all([getAuthorizedAdmin(), getAuthorizedStudent()]);
 
+  const canOpen = (cid) => admin && (admin.id === 'master' || (admin.course_ids || []).includes(cid));
   let target = student;
   let preview = false;
   if (!target && admin && sp?.id) {
-    const { data } = await supabaseAdmin().from('students').select('id,name').eq('id', sp.id).maybeSingle();
-    target = data;
+    const { data } = await supabaseAdmin().from('students').select('id,name,course_id').eq('id', sp.id).maybeSingle();
+    target = data && canOpen(data.course_id) ? data : null; // 담당 교육의 교육생만 미리보기
     preview = true;
   }
-  // 관리자(강사)가 ?id= 없이 열면 운영진 계정 화면
-  const staffMode = !target && Boolean(admin);
-  if (!target && !staffMode) redirect('/login');
+  // 관리자(강사)가 ?id= 없이 열면 운영진 계정 화면 (?course= 로 교육 지정)
+  const staffMode = !target && Boolean(admin) && !sp?.id;
+  if (!target && !staffMode) redirect(admin ? '/admin' : '/login');
 
-  const [cfg, settings] = await Promise.all([getAiConfig(), getSettings()]);
+  const staffCourse = COURSE_ID_RE.test(sp?.course || '') && canOpen(sp.course) ? sp.course : (admin?.id === 'master' ? MAIN_COURSE : (admin?.course_ids || [])[0] || MAIN_COURSE);
+  const courseId = staffMode ? staffCourse : target.course_id;
+  const [cfg, settings] = await Promise.all([getAiConfig(courseId), getSettings(courseId)]);
   const view = staffMode ? viewForStaff(cfg, admin.name) : viewFor(cfg, target.id);
   const empty = !view.common && view.tools.length === 0 && !view.hasGoogleSection && !view.guide && !view.help && !(view.staff && view.staff.length);
 

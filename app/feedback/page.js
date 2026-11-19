@@ -18,7 +18,7 @@ export default async function FeedbackPage() {
   const [{ data: rows }, { data: me }, settings] = await Promise.all([
     db.from('feedback').select('*').eq('student_id', student.id).order('created_at'),
     db.from('students').select('feedback_seen_at').eq('id', student.id).maybeSingle(),
-    getSettings()
+    getSettings(student.course_id)
   ]);
 
   const seenAt = me?.feedback_seen_at ? new Date(me.feedback_seen_at).getTime() : 0;

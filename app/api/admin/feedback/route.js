@@ -2,32 +2,41 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabaseAdmin';
-import { getAuthorizedAdmin } from '../../../../lib/adminAuth';
+import { requireAdminCourse, studentInCourse } from '../../../../lib/courses';
 
 const MAX_BODY = 3000;
 const MAX_TITLE = 100;
 
-async function requireAdmin() {
-  const admin = await getAuthorizedAdmin();
-  if (!admin) return { error: NextResponse.json({ error: 'unauthorized' }, { status: 401 }) };
-  return { admin };
+// 이 교육의 교육생 번호 목록 (피드백은 교육생에 딸려 있어서 교육생으로 교육을 구분한다)
+async function courseStudentIds(db, courseId) {
+  const { data } = await db.from('students').select('id').eq('course_id', courseId);
+  return (data || []).map((s) => s.id);
+}
+
+// 피드백 글이 이 교육 교육생의 것인지 확인
+async function feedbackInCourse(db, feedbackId, courseId) {
+  const { data } = await db.from('feedback').select('student_id').eq('id', feedbackId).maybeSingle();
+  return data ? studentInCourse(data.student_id, courseId) : false;
 }
 
 // ?studentId=101 → 해당 학생의 피드백 스레드 / 없으면 학생별 요약(건수, 마지막 활동)
 export async function GET(req) {
-  const { error } = await requireAdmin();
+  const { error, courseId } = await requireAdminCourse(req);
   if (error) return error;
 
   const db = supabaseAdmin();
   const studentId = new URL(req.url).searchParams.get('studentId');
 
   if (studentId) {
+    if (!(await studentInCourse(studentId, courseId))) return NextResponse.json({ feedback: [] });
     const { data, error: dbErr } = await db.from('feedback').select('*').eq('student_id', studentId).order('created_at');
     if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });
     return NextResponse.json({ feedback: data });
   }
 
-  const { data, error: dbErr } = await db.from('feedback').select('student_id,author_role,title,created_at').order('created_at');
+  const ids = await courseStudentIds(db, courseId);
+  if (!ids.length) return NextResponse.json({ summary: [], titles: [] });
+  const { data, error: dbErr } = await db.from('feedback').select('student_id,author_role,title,created_at').in('student_id', ids).order('created_at');
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });
 
   const byStudent = {};
@@ -45,11 +54,12 @@ export async function GET(req) {
 
 // body: { studentId, title?, body }
 export async function POST(req) {
-  const { admin, error } = await requireAdmin();
+  const { admin, error, courseId } = await requireAdminCourse(req);
   if (error) return error;
 
   const { studentId, title, body } = await req.json();
   if (!studentId) return NextResponse.json({ error: '학생을 선택해주세요.' }, { status: 400 });
+  if (!(await studentInCourse(studentId, courseId))) return NextResponse.json({ error: '이 교육의 교육생이 아닙니다.' }, { status: 400 });
   const text = (body || '').trim();
   if (!text) return NextResponse.json({ error: '피드백 내용을 입력해주세요.' }, { status: 400 });
   if (text.length > MAX_BODY) return NextResponse.json({ error: `내용은 ${MAX_BODY}자 이하로 입력해주세요.` }, { status: 400 });
@@ -72,7 +82,7 @@ export async function POST(req) {
 
 // 관리자가 쓴 글의 오타 수정용 (학생이 쓴 글은 수정 불가)
 export async function PUT(req) {
-  const { error } = await requireAdmin();
+  const { error, courseId } = await requireAdminCourse(req);
   if (error) return error;
 
   const { id, title, body } = await req.json();
@@ -81,6 +91,7 @@ export async function PUT(req) {
   if (text.length > MAX_BODY) return NextResponse.json({ error: `내용은 ${MAX_BODY}자 이하로 입력해주세요.` }, { status: 400 });
 
   const db = supabaseAdmin();
+  if (!(await feedbackInCourse(db, id, courseId))) return NextResponse.json({ error: '이 교육의 글이 아닙니다.' }, { status: 404 });
   const { error: dbErr } = await db
     .from('feedback')
     .update({ title: (title || '').trim().slice(0, MAX_TITLE), body: text })
@@ -91,13 +102,14 @@ export async function PUT(req) {
 }
 
 export async function DELETE(req) {
-  const { error } = await requireAdmin();
+  const { error, courseId } = await requireAdminCourse(req);
   if (error) return error;
 
   const id = new URL(req.url).searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 });
 
   const db = supabaseAdmin();
+  if (!(await feedbackInCourse(db, id, courseId))) return NextResponse.json({ error: '이 교육의 글이 아닙니다.' }, { status: 404 });
   const { error: dbErr } = await db.from('feedback').delete().eq('id', id);
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });
   return NextResponse.json({ ok: true });

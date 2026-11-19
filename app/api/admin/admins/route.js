@@ -2,14 +2,19 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabaseAdmin';
-import { getAuthorizedAdmin, hashPassword } from '../../../../lib/adminAuth';
+import { hashPassword } from '../../../../lib/adminAuth';
+import { requireMasterAdmin, COURSE_ID_RE } from '../../../../lib/courses';
 
 // 관리자 계정 관리는 마스터만 가능 (일반 관리자는 접근 불가)
-async function requireMaster() {
-  const admin = await getAuthorizedAdmin();
-  if (!admin) return { error: NextResponse.json({ error: 'unauthorized' }, { status: 401 }) };
-  if (admin.id !== 'master') return { error: NextResponse.json({ error: '마스터 계정만 접근할 수 있습니다.' }, { status: 403 }) };
-  return { admin };
+const requireMaster = requireMasterAdmin;
+
+// 존재하는 교육 id만 남긴다 (중복 제거)
+async function cleanCourseIds(db, ids) {
+  const wanted = [...new Set((Array.isArray(ids) ? ids : []).map(String).filter((c) => COURSE_ID_RE.test(c)))];
+  if (!wanted.length) return [];
+  const { data } = await db.from('courses').select('id').in('id', wanted);
+  const ok = new Set((data || []).map((c) => c.id));
+  return wanted.filter((c) => ok.has(c));
 }
 
 export async function GET() {
@@ -17,7 +22,7 @@ export async function GET() {
   if (error) return error;
 
   const db = supabaseAdmin();
-  const { data, error: dbErr } = await db.from('admins').select('id,name,created_at').order('created_at');
+  const { data, error: dbErr } = await db.from('admins').select('id,name,created_at,course_ids').order('created_at');
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });
   return NextResponse.json({ admins: data });
 }
@@ -26,7 +31,7 @@ export async function POST(req) {
   const { error } = await requireMaster();
   if (error) return error;
 
-  const { name, password } = await req.json();
+  const { name, password, courseIds } = await req.json();
   if (!name || !name.trim() || !password || password.length < 4) {
     return NextResponse.json({ error: '이름과 4자 이상 비밀번호를 입력해주세요.' }, { status: 400 });
   }
@@ -34,8 +39,8 @@ export async function POST(req) {
   const db = supabaseAdmin();
   const { data, error: dbErr } = await db
     .from('admins')
-    .insert({ name: name.trim(), password_hash: hashPassword(password) })
-    .select('id,name,created_at')
+    .insert({ name: name.trim(), password_hash: hashPassword(password), course_ids: await cleanCourseIds(db, courseIds) })
+    .select('id,name,created_at,course_ids')
     .single();
 
   if (dbErr) {
@@ -43,6 +48,21 @@ export async function POST(req) {
     return NextResponse.json({ error: msg }, { status: 400 });
   }
   return NextResponse.json({ admin: data });
+}
+
+// 담당 교육 지정. body: { id, courseIds }
+export async function PUT(req) {
+  const { error } = await requireMaster();
+  if (error) return error;
+
+  const { id, courseIds } = await req.json();
+  if (!id) return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 });
+
+  const db = supabaseAdmin();
+  const clean = await cleanCourseIds(db, courseIds);
+  const { error: dbErr } = await db.from('admins').update({ course_ids: clean }).eq('id', id);
+  if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });
+  return NextResponse.json({ ok: true, courseIds: clean });
 }
 
 export async function DELETE(req) {

@@ -2,30 +2,24 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabaseAdmin';
-import { getAuthorizedAdmin } from '../../../../lib/adminAuth';
+import { requireAdminCourse } from '../../../../lib/courses';
 
 const BUCKET = 'qr-codes';
 
-async function requireAdmin() {
-  const admin = await getAuthorizedAdmin();
-  if (!admin) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  return null;
-}
-
-export async function GET() {
-  const unauth = await requireAdmin();
-  if (unauth) return unauth;
+export async function GET(req) {
+  const { error: authErr, courseId } = await requireAdminCourse(req);
+  if (authErr) return authErr;
 
   const db = supabaseAdmin();
-  const { data, error } = await db.from('qr_codes').select('*').order('key');
+  const { data, error } = await db.from('qr_codes').select('*').eq('course_id', courseId).order('key');
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ qrCodes: data });
 }
 
 // QR 클릭 시 이동할 링크 저장. 스킴이 없으면 https://를 붙이고, http(s) 외 스킴은 막습니다.
 export async function PUT(req) {
-  const unauth = await requireAdmin();
-  if (unauth) return unauth;
+  const { error: authErr, courseId } = await requireAdminCourse(req);
+  if (authErr) return authErr;
 
   const { key, linkUrl } = await req.json();
   if (!key) return NextResponse.json({ error: 'key가 필요합니다.' }, { status: 400 });
@@ -34,15 +28,15 @@ export async function PUT(req) {
   if (value && !/^https?:\/\//i.test(value)) value = 'https://' + value;
 
   const db = supabaseAdmin();
-  const { error } = await db.from('qr_codes').update({ link_url: value || null }).eq('key', key);
+  const { error } = await db.from('qr_codes').update({ link_url: value || null }).eq('course_id', courseId).eq('key', key);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, linkUrl: value || null });
 }
 
 // multipart/form-data: fields "key" (attendance|submit), "file" (image)
 export async function POST(req) {
-  const unauth = await requireAdmin();
-  if (unauth) return unauth;
+  const { error: authErr, courseId } = await requireAdminCourse(req);
+  if (authErr) return authErr;
 
   const form = await req.formData();
   const key = form.get('key');
@@ -57,7 +51,8 @@ export async function POST(req) {
 
   const db = supabaseAdmin();
   const ext = (file.name && file.name.includes('.')) ? file.name.split('.').pop() : 'png';
-  const path = `${key}.${ext}`;
+  // 교육별로 파일이 겹치지 않게 (기존 교육은 예전 이름 그대로)
+  const path = courseId === 'main' ? `${key}.${ext}` : `${courseId}-${key}.${ext}`;
 
   const arrayBuffer = await file.arrayBuffer();
   const { error: uploadErr } = await db.storage
@@ -70,7 +65,7 @@ export async function POST(req) {
   // 캐시 우회용 타임스탬프를 붙여서, 같은 파일명으로 재업로드해도 브라우저가 즉시 새 이미지를 보여주게 합니다.
   const imageUrl = pub.publicUrl + '?t=' + Date.now();
 
-  const { error: dbErr } = await db.from('qr_codes').update({ image_url: imageUrl }).eq('key', key);
+  const { error: dbErr } = await db.from('qr_codes').update({ image_url: imageUrl }).eq('course_id', courseId).eq('key', key);
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });
 
   return NextResponse.json({ ok: true, imageUrl });

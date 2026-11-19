@@ -15,8 +15,13 @@ function fmtDate(d) {
 function h(x) { return Math.round((x || 0) * 10) / 10 + 'h'; }
 function pct(x) { return Math.round((x || 0) * 100) + '%'; }
 
-async function apiCall(url, options) {
-  const res = await fetch(url, options);
+// 지금 선택한 교육. 모든 관리자 API 호출에 x-course 헤더로 실어 보낸다(서버가 담당 교육인지 다시 검사).
+let CURRENT_COURSE = '';
+
+async function apiCall(url, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (CURRENT_COURSE) headers['x-course'] = CURRENT_COURSE;
+  const res = await fetch(url, { ...options, headers });
   let json = null;
   try { json = await res.json(); } catch (e) { /* no body */ }
   if (!res.ok) {
@@ -25,7 +30,67 @@ async function apiCall(url, options) {
   return json;
 }
 
+// 교육 선택을 먼저 하고, 고른 교육 하나에 대해 아래 AdminCourse 화면을 보여준다.
+// 교육을 바꾸면 key 가 바뀌어 화면 상태가 전부 새로 시작된다(다른 교육 데이터가 섞여 보이지 않게).
 export default function AdminPage() {
+  const [courses, setCourses] = useState(null);
+  const [courseId, setCourseId] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const router = useRouter();
+
+  const loadCourses = useCallback(async (prefer) => {
+    try {
+      const j = await apiCall('/api/admin/courses');
+      const list = j.courses || [];
+      setCourses(list);
+      setCourseId((cur) => {
+        let saved = '';
+        try { saved = localStorage.getItem('admin_course') || ''; } catch (e) { /* 저장소를 못 써도 괜찮음 */ }
+        const ids = list.map((c) => c.id);
+        for (const c of [prefer, cur, saved]) if (c && ids.includes(c)) return c;
+        return ids[0] || '';
+      });
+    } catch (err) {
+      setLoadError(err.message);
+    }
+  }, []);
+
+  useEffect(() => { loadCourses(); }, [loadCourses]);
+
+  function switchCourse(id) {
+    try { localStorage.setItem('admin_course', id); } catch (e) { /* 무시 */ }
+    setCourseId(id);
+  }
+
+  CURRENT_COURSE = courseId;
+
+  async function logout() {
+    await fetch('/api/admin/logout', { method: 'POST' });
+    router.push('/login');
+  }
+
+  if (loadError) {
+    return <div className="page wide"><div className="state"><h2>교육 목록을 불러오지 못했습니다</h2><p>{loadError}</p></div></div>;
+  }
+  if (courses === null) {
+    return <div className="page wide"><div className="state"><div className="spinner" /><p>불러오는 중…</p></div></div>;
+  }
+  if (!courses.length) {
+    return (
+      <div className="page wide">
+        <div className="state">
+          <h2>담당 교육이 지정되지 않았습니다</h2>
+          <p>마스터 관리자에게 &quot;관리자 계정&quot; 탭에서 담당 교육을 지정해 달라고 요청해 주세요.</p>
+          <p><button className="btn ghost small" onClick={logout}>로그아웃</button></p>
+        </div>
+      </div>
+    );
+  }
+
+  return <AdminCourse key={courseId} courseId={courseId} courses={courses} onSwitch={switchCourse} reloadCourses={loadCourses} />;
+}
+
+function AdminCourse({ courseId, courses, onSwitch, reloadCourses }) {
   const [tab, setTab] = useState('attend');
   const [sessions, setSessions] = useState([]);
   const [students, setStudents] = useState([]);
@@ -44,7 +109,7 @@ export default function AdminPage() {
 
   const loadSettings = useCallback(() => {
     apiCall('/api/admin/settings')
-      .then((j) => setSettings({ courseTitle: j.courseTitle || DEFAULT_COURSE_TITLE, courseSub: j.courseSub || DEFAULT_COURSE_SUB }))
+      .then((j) => setSettings({ courseTitle: j.courseTitle || DEFAULT_COURSE_TITLE, courseSub: j.courseSub || DEFAULT_COURSE_SUB, driveFolderId: j.driveFolderId || '', isMain: Boolean(j.isMain) }))
       .catch(() => {});
   }, []);
 
@@ -148,6 +213,16 @@ export default function AdminPage() {
         </div>
       )}
 
+      {(courses.length > 1 || isMaster) && (
+        <div className="hint" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <b>교육 선택</b>
+          <select value={courseId} onChange={(e) => onSwitch(e.target.value)} style={{ minWidth: 220 }}>
+            {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <span className="small-dim">아래 모든 탭이 선택한 교육의 데이터입니다.</span>
+        </div>
+      )}
+
       <div className="hint">
         💡 여기서 저장하면 학생용 페이지에 <b>즉시 반영</b>됩니다 (별도 갱신 요청 필요 없음).
         {notifPerm === 'default' && (
@@ -159,7 +234,7 @@ export default function AdminPage() {
         {[
           ['attend', '출석체크'], ['students', '교육생 명단'], ['sessions', '회차 일정'], ['course', '과정 정보'],
           ['notice', '공지사항'], ['links', '링크 설정'], ['questions', '질문 게시판'], ['submissions', '과제 제출 현황'], ['feedback', '과제 피드백'], ['aiaccounts', '생성형 AI 계정'],
-          ...(isMaster ? [['admins', '관리자 계정']] : []),
+          ...(isMaster ? [['courses', '교육 관리'], ['admins', '관리자 계정']] : []),
           ['overview', '전체 현황']
         ].map(([k, label]) => (
           <button key={k} className={'tab-btn' + (tab === k ? ' active' : '')} onClick={() => { setTab(k); if (k === 'questions') setQAlert(''); }}>
@@ -176,7 +251,7 @@ export default function AdminPage() {
         <StudentsPanel students={students} loadAll={loadAll} showToast={showToast} />
       )}
       {tab === 'sessions' && (
-        <SessionsPanel sessions={sessions} loadAll={loadAll} showToast={showToast} />
+        <SessionsPanel sessions={sessions} courseId={courseId} loadAll={loadAll} showToast={showToast} />
       )}
       {tab === 'course' && (
         <CoursePanel settings={settings} loadSettings={loadSettings} showToast={showToast} />
@@ -194,16 +269,19 @@ export default function AdminPage() {
         <QuestionsPanel showToast={showToast} />
       )}
       {tab === 'submissions' && (
-        <SubmissionsPanel students={students} sessions={sessions} showToast={showToast} />
+        <SubmissionsPanel students={students} sessions={sessions} courseId={courseId} showToast={showToast} />
       )}
       {tab === 'aiaccounts' && (
-        <AiAccountsPanel students={students} showToast={showToast} />
+        <AiAccountsPanel students={students} courseId={courseId} showToast={showToast} />
       )}
       {tab === 'feedback' && (
         <FeedbackPanel students={students} showToast={showToast} />
       )}
+      {tab === 'courses' && isMaster && (
+        <CoursesPanel courses={courses} currentId={courseId} onSwitch={onSwitch} reloadCourses={reloadCourses} showToast={showToast} />
+      )}
       {tab === 'admins' && isMaster && (
-        <AdminsPanel me={me} showToast={showToast} />
+        <AdminsPanel me={me} courseId={courseId} showToast={showToast} />
       )}
       {tab === 'overview' && (
         <OverviewPanel students={students} sessions={sessions} attendance={attendance} studentPageUrl={studentPageUrl} showToast={showToast} />
@@ -413,7 +491,7 @@ function StudentsPanel({ students, loadAll, showToast }) {
   );
 }
 
-function SessionsPanel({ sessions, loadAll, showToast }) {
+function SessionsPanel({ sessions, courseId, loadAll, showToast }) {
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState('');
   const [savingDetail, setSavingDetail] = useState(false);
@@ -440,6 +518,28 @@ function SessionsPanel({ sessions, loadAll, showToast }) {
     }
   }
 
+  async function addSession() {
+    try {
+      await apiCall('/api/admin/sessions', { method: 'POST' });
+      await loadAll();
+      showToast('회차를 추가했습니다');
+    } catch (err) {
+      showToast('추가 실패: ' + err.message);
+    }
+  }
+
+  async function removeSession(n) {
+    if (!confirm(n + '회차를 삭제할까요?\n그 회차의 출석 기록도 함께 사라지며 되돌릴 수 없습니다.')) return;
+    try {
+      await apiCall('/api/admin/sessions?n=' + n, { method: 'DELETE' });
+      if (editing === n) setEditing(null);
+      await loadAll();
+      showToast('삭제했습니다');
+    } catch (err) {
+      showToast('삭제 실패: ' + err.message);
+    }
+  }
+
   async function updateField(n, field, value) {
     try {
       await apiCall('/api/admin/sessions', {
@@ -459,8 +559,9 @@ function SessionsPanel({ sessions, loadAll, showToast }) {
       <h2>회차 일정 (총 {sessions.reduce((s, x) => s + Number(x.hours), 0)}h)</h2>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>회차</th><th>일자</th><th>구분</th><th>시간(h)</th><th>주제</th><th>세부 내용</th></tr></thead>
+          <thead><tr><th>회차</th><th>일자</th><th>구분</th><th>시간(h)</th><th>주제</th><th>세부 내용</th><th></th></tr></thead>
           <tbody>
+            {sessions.length === 0 && <tr><td colSpan={7} className="empty">회차가 없습니다. 아래 [+ 회차 추가]로 만들어 주세요.</td></tr>}
             {sessions.map((s) => (
               <tr key={s.n}>
                 <td className="mono">{s.n}</td>
@@ -475,13 +576,15 @@ function SessionsPanel({ sessions, loadAll, showToast }) {
                 <td><input type="text" style={{ minWidth: 220 }} defaultValue={s.topic} onBlur={(e) => updateField(s.n, 'topic', e.target.value)} /></td>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   <button className={'btn small ' + (editing === s.n ? '' : 'ghost')} onClick={() => openEditor(s)}>{s.detail ? '보기·수정' : '작성'}</button>
-                  {s.detail && <a className="small-dim" style={{ marginLeft: 8 }} href={'/lesson/' + s.n} target="_blank" rel="noreferrer">미리보기</a>}
+                  {s.detail && <a className="small-dim" style={{ marginLeft: 8 }} href={'/lesson/' + s.n + '?course=' + courseId} target="_blank" rel="noreferrer">미리보기</a>}
                 </td>
+                <td><button className="btn small danger" onClick={() => removeSession(s.n)}>삭제</button></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      <div className="row" style={{ marginTop: 10 }}><button className="btn small ghost" onClick={addSession}>+ 회차 추가</button></div>
 
       {editing != null && (
         <div style={{ marginTop: 14 }}>
@@ -508,9 +611,13 @@ function SessionsPanel({ sessions, loadAll, showToast }) {
 function CoursePanel({ settings, loadSettings, showToast }) {
   const [title, setTitle] = useState(settings.courseTitle);
   const [sub, setSub] = useState(settings.courseSub);
+  const [drive, setDrive] = useState(settings.driveFolderId ? 'https://drive.google.com/drive/folders/' + settings.driveFolderId : '');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { setTitle(settings.courseTitle); setSub(settings.courseSub); }, [settings]);
+  useEffect(() => {
+    setTitle(settings.courseTitle); setSub(settings.courseSub);
+    setDrive(settings.driveFolderId ? 'https://drive.google.com/drive/folders/' + settings.driveFolderId : '');
+  }, [settings]);
 
   async function save() {
     setSaving(true);
@@ -518,7 +625,7 @@ function CoursePanel({ settings, loadSettings, showToast }) {
       await apiCall('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseTitle: title, courseSub: sub })
+        body: JSON.stringify({ courseTitle: title, courseSub: sub, driveFolder: drive })
       });
       loadSettings();
       showToast('저장했습니다');
@@ -535,6 +642,8 @@ function CoursePanel({ settings, loadSettings, showToast }) {
       <p className="small-dim" style={{ marginBottom: 12 }}>학생용 페이지·질문 게시판·설명 페이지 상단 배너에 표시되는 제목/부제입니다.</p>
       <div className="row"><label style={{ minWidth: 60 }} className="small-dim">제목</label><input type="text" style={{ flex: 1, minWidth: 240 }} value={title} onChange={(e) => setTitle(e.target.value)} /></div>
       <div className="row"><label style={{ minWidth: 60 }} className="small-dim">부제</label><input type="text" style={{ flex: 1, minWidth: 240 }} value={sub} onChange={(e) => setSub(e.target.value)} /></div>
+      <div className="row"><label style={{ minWidth: 60 }} className="small-dim">과제 폴더</label><input type="text" style={{ flex: 1, minWidth: 240 }} placeholder={settings.isMain ? '구글 드라이브 과제 폴더 주소 (비워 두면 기존 폴더 사용)' : '구글 드라이브 과제 폴더 주소'} value={drive} onChange={(e) => setDrive(e.target.value)} /></div>
+      <p className="small-dim" style={{ marginBottom: 12 }}>"과제 제출 현황"이 읽는 폴더입니다. 폴더 안에 &quot;번호_이름 / 1회차 / 파일&quot; 구조로 제출하고, 폴더를 &quot;링크가 있는 모든 사용자&quot;에게 공유해 두어야 합니다. 비워 두면 이 교육은 과제 제출 현황을 사용하지 않습니다.</p>
       <button className="btn" onClick={save} disabled={saving}>{saving ? '저장 중…' : '저장'}</button>
     </div>
   );
@@ -718,7 +827,7 @@ function QrPanel({ showToast }) {
       const form = new FormData();
       form.append('key', key);
       form.append('file', file);
-      const res = await fetch('/api/admin/qrcodes', { method: 'POST', body: form });
+      const res = await fetch('/api/admin/qrcodes', { method: 'POST', body: form, headers: CURRENT_COURSE ? { 'x-course': CURRENT_COURSE } : undefined });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || '업로드 실패');
       showToast('이미지를 업로드했습니다');
@@ -798,7 +907,7 @@ function QrPanel({ showToast }) {
   );
 }
 
-function SubmissionsPanel({ students, sessions, showToast }) {
+function SubmissionsPanel({ students, sessions, courseId, showToast }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const today = kstToday();
@@ -813,7 +922,7 @@ function SubmissionsPanel({ students, sessions, showToast }) {
 
   useEffect(() => { load(false); }, [load]);
 
-  const cols = sessions.filter((s) => hasAssignment(s.n));
+  const cols = sessions.filter((s) => hasAssignment(s.n, courseId));
   const norm = (s) => String(s || '').replace(/\s+/g, '');
   const driveByName = new Map((data?.students || []).map((d) => [norm(d.name), d]));
   const matchedNames = new Set(students.map((s) => norm(s.name)));
@@ -834,7 +943,9 @@ function SubmissionsPanel({ students, sessions, showToast }) {
         <div className="q-alert" role="alert" style={{ display: 'block' }}>
           {data.reason === 'pending'
             ? '처음 확인을 진행 중입니다. 잠시 뒤 [지금 다시 확인]을 눌러 주세요.'
-            : '과제 폴더를 읽지 못했습니다: ' + data.error}
+            : data.reason === 'nofolder'
+              ? data.error
+              : '과제 폴더를 읽지 못했습니다: ' + data.error}
         </div>
       )}
       {data?.ok && data.error && (
@@ -877,7 +988,7 @@ function SubmissionsPanel({ students, sessions, showToast }) {
               </tbody>
             </table>
           </div>
-          <p className="small-dim" style={{ marginTop: 8 }}>✓숫자 = 제출된 파일 수 · "-" = 아직 해당 회차가 지나지 않음 · 16회차는 필수 과제가 없어 제외했습니다. 결과는 5분 동안 보관되며 [지금 다시 확인]으로 바로 갱신할 수 있습니다.</p>
+          <p className="small-dim" style={{ marginTop: 8 }}>✓숫자 = 제출된 파일 수 · "-" = 아직 해당 회차가 지나지 않음 · 필수 과제가 없는 회차(기존 교육의 16회차)는 제외했습니다. 결과는 5분 동안 보관되며 [지금 다시 확인]으로 바로 갱신할 수 있습니다.</p>
           {unmatched.length > 0 && (
             <div className="small-dim" style={{ marginTop: 6 }}>
               ⚠ 명단과 이름이 맞지 않는 드라이브 폴더: {unmatched.map((u) => u.folder).join(', ')} (폴더 이름의 "번호_" 뒤 이름이 교육생 명단 이름과 같아야 합니다)
@@ -889,7 +1000,7 @@ function SubmissionsPanel({ students, sessions, showToast }) {
   );
 }
 
-function AiAccountsPanel({ students, showToast }) {
+function AiAccountsPanel({ students, courseId, showToast }) {
   const [cfg, setCfg] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -1041,7 +1152,7 @@ function AiAccountsPanel({ students, showToast }) {
 
       <div className="panel">
         <h2>관리자 · 강사 계정 (관리자 전용)</h2>
-        <div style={{ marginBottom: 10 }}><a className="btn small ghost" href="/ai-accounts" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>강사에게 보이는 화면 열기 →</a></div>
+        <div style={{ marginBottom: 10 }}><a className="btn small ghost" href={'/ai-accounts?course=' + courseId} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>강사에게 보이는 화면 열기 →</a></div>
         <p className="small-dim" style={{ marginBottom: 10 }}>최미경·신진수·송광호 등 운영진의 계정을 기록해 두는 곳입니다. 교육생에게는 전달되지 않고 이 화면에서만 보입니다.</p>
         <div className="table-wrap" style={{ maxHeight: 300 }}>
           <table>
@@ -1456,17 +1567,35 @@ function QuestionsPanel({ showToast }) {
   );
 }
 
-function AdminsPanel({ me, showToast }) {
+function AdminsPanel({ me, courseId, showToast }) {
   const [admins, setAdmins] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [creating, setCreating] = useState(false);
+  const [allCourses, setAllCourses] = useState([]);
 
   const load = useCallback(() => {
     setLoadError('');
     apiCall('/api/admin/admins').then((j) => setAdmins(j.admins || [])).catch((err) => setLoadError(err.message));
+    apiCall('/api/admin/courses').then((j) => setAllCourses(j.courses || [])).catch(() => {});
   }, []);
+
+  async function toggleCourse(admin, cid, on) {
+    const next = on ? [...new Set([...(admin.course_ids || []), cid])] : (admin.course_ids || []).filter((c) => c !== cid);
+    setAdmins((list) => list.map((a) => (a.id === admin.id ? { ...a, course_ids: next } : a)));
+    try {
+      await apiCall('/api/admin/admins', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: admin.id, courseIds: next })
+      });
+      showToast('담당 교육을 저장했습니다');
+    } catch (err) {
+      showToast('저장 실패: ' + err.message);
+      load();
+    }
+  }
 
   useEffect(() => { load(); }, [load]);
 
@@ -1481,7 +1610,7 @@ function AdminsPanel({ me, showToast }) {
       await apiCall('/api/admin/admins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, password })
+        body: JSON.stringify({ name, password, courseIds: [courseId] })
       });
       setName(''); setPassword('');
       load();
@@ -1507,7 +1636,7 @@ function AdminsPanel({ me, showToast }) {
   return (
     <div className="panel">
       <h2>관리자 계정</h2>
-      <p className="small-dim" style={{ marginBottom: 12 }}>이름 없이 마스터 비밀번호로 로그인하면 &quot;마스터관리자&quot;로 표시됩니다. 담당자별 계정은 아래에서 추가하세요.</p>
+      <p className="small-dim" style={{ marginBottom: 12 }}>이름 없이 마스터 비밀번호로 로그인하면 &quot;마스터관리자&quot;로 표시됩니다(모든 교육 접근). 담당자별 계정은 아래에서 추가하고, <b>담당 교육</b>을 체크한 교육만 그 담당자에게 보입니다. 새로 추가하면 지금 선택한 교육이 담당으로 지정됩니다.</p>
       {loadError && (
         <div className="empty" style={{ marginBottom: 12 }}>
           불러오지 못했습니다: {loadError}
@@ -1516,13 +1645,22 @@ function AdminsPanel({ me, showToast }) {
       )}
       <div className="table-wrap">
         <table>
-          <thead><tr><th>이름</th><th>생성일</th><th></th></tr></thead>
+          <thead><tr><th>이름</th><th>담당 교육</th><th>생성일</th><th></th></tr></thead>
           <tbody>
-            {admins === null && !loadError && <tr><td colSpan={3} className="empty">불러오는 중…</td></tr>}
-            {admins?.length === 0 && <tr><td colSpan={3} className="empty">추가된 담당자 계정이 없습니다.</td></tr>}
+            {admins === null && !loadError && <tr><td colSpan={4} className="empty">불러오는 중…</td></tr>}
+            {admins?.length === 0 && <tr><td colSpan={4} className="empty">추가된 담당자 계정이 없습니다.</td></tr>}
             {admins?.map((a) => (
               <tr key={a.id}>
                 <td>{a.name}{me?.id === a.id ? ' (나)' : ''}</td>
+                <td>
+                  {allCourses.length === 0 && <span className="small-dim">-</span>}
+                  {allCourses.map((c) => (
+                    <label key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12, whiteSpace: 'nowrap', fontSize: 12.5 }}>
+                      <input type="checkbox" checked={(a.course_ids || []).includes(c.id)} onChange={(e) => toggleCourse(a, c.id, e.target.checked)} />
+                      {c.name}
+                    </label>
+                  ))}
+                </td>
                 <td className="small-dim">{new Date(a.created_at).toLocaleDateString('ko-KR')}</td>
                 <td>{me?.id !== a.id && <button className="btn small danger" onClick={() => removeAdmin(a.id)}>삭제</button>}</td>
               </tr>
@@ -1535,6 +1673,92 @@ function AdminsPanel({ me, showToast }) {
         <input type="password" placeholder="비밀번호 (4자 이상)" value={password} onChange={(e) => setPassword(e.target.value)} />
         <button className="btn" type="submit" disabled={creating}>{creating ? '추가 중…' : '+ 관리자 추가'}</button>
       </form>
+    </div>
+  );
+}
+
+function CoursesPanel({ courses, currentId, onSwitch, reloadCourses, showToast }) {
+  const [name, setName] = useState('');
+  const [count, setCount] = useState('0');
+  const [creating, setCreating] = useState(false);
+
+  async function create(e) {
+    e.preventDefault();
+    if (!name.trim()) { showToast('교육 이름을 입력해주세요'); return; }
+    setCreating(true);
+    try {
+      const j = await apiCall('/api/admin/courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, sessionCount: Number(count) || 0 })
+      });
+      setName(''); setCount('0');
+      await reloadCourses(j.course.id);
+      onSwitch(j.course.id);
+      showToast('교육을 만들었습니다. 이제 이 교육을 설정하세요');
+    } catch (err) {
+      showToast('만들기 실패: ' + err.message);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function rename(c, value) {
+    const v = value.trim();
+    if (!v || v === c.name) return;
+    try {
+      await apiCall('/api/admin/courses', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: c.id, name: v })
+      });
+      await reloadCourses(currentId);
+      showToast('이름을 바꿨습니다');
+    } catch (err) {
+      showToast('저장 실패: ' + err.message);
+    }
+  }
+
+  async function remove(c) {
+    const typed = prompt('"' + c.name + '" 교육을 삭제합니다.\n교육생·출석·질문·피드백·일정·공지·링크가 모두 함께 사라지며 되돌릴 수 없습니다.\n\n삭제하려면 교육 이름을 그대로 입력하세요.');
+    if (typed === null) return;
+    if (typed.trim() !== c.name) { showToast('교육 이름이 달라서 삭제하지 않았습니다'); return; }
+    try {
+      await apiCall('/api/admin/courses?id=' + encodeURIComponent(c.id), { method: 'DELETE' });
+      await reloadCourses(c.id === currentId ? 'main' : currentId);
+      showToast('삭제했습니다');
+    } catch (err) {
+      showToast('삭제 실패: ' + err.message);
+    }
+  }
+
+  return (
+    <div className="panel">
+      <h2>교육 관리 (마스터 전용)</h2>
+      <p className="small-dim" style={{ marginBottom: 12 }}>
+        교육마다 교육생·회차·출석·공지·링크·QR·질문 게시판·과제 피드백·과제 제출 현황·생성형 AI 계정이 따로 운영됩니다. 위쪽 &quot;교육 선택&quot;에서 교육을 바꾸면 모든 탭이 그 교육 기준으로 바뀝니다. 교육별 담당 관리자는 &quot;관리자 계정&quot; 탭에서 지정합니다.
+      </p>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>교육 이름 (선택 목록에 표시)</th><th>상태</th><th></th></tr></thead>
+          <tbody>
+            {courses.map((c) => (
+              <tr key={c.id}>
+                <td><input type="text" style={{ minWidth: 260 }} defaultValue={c.name} onBlur={(e) => rename(c, e.target.value)} /></td>
+                <td className="small-dim">{c.id === currentId ? '지금 선택됨' : <button className="btn small ghost" onClick={() => onSwitch(c.id)}>이 교육 열기</button>}</td>
+                <td>{c.id !== 'main' && <button className="btn small danger" onClick={() => remove(c)}>삭제</button>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <form onSubmit={create} className="row" style={{ marginTop: 12 }}>
+        <input type="text" placeholder="새 교육 이름" value={name} onChange={(e) => setName(e.target.value)} style={{ minWidth: 240 }} />
+        <label className="small-dim">빈 회차</label>
+        <input type="number" min="0" max="40" value={count} onChange={(e) => setCount(e.target.value)} style={{ width: 70 }} />
+        <button className="btn" type="submit" disabled={creating}>{creating ? '만드는 중…' : '+ 교육 추가'}</button>
+      </form>
+      <p className="small-dim" style={{ marginTop: 8 }}>빈 회차를 입력하면 그 개수만큼 회차가 미리 만들어집니다(날짜·시간·주제는 &quot;회차 일정&quot;에서 고칩니다). 기존 교육은 삭제할 수 없습니다.</p>
     </div>
   );
 }

@@ -42,14 +42,16 @@ export async function POST(req) {
   if (!matches || matches.length === 0) {
     return NextResponse.json({ error: '이름 또는 비밀번호가 올바르지 않습니다.' }, { status: 401 });
   }
-  if (matches.length > 1) {
-    return NextResponse.json({ error: '동일한 이름의 교육생이 여러 명 있습니다. 관리자에게 문의해주세요.' }, { status: 409 });
-  }
-
-  const student = matches[0];
-  if (!student.password_hash || !verifyPassword(password, student.password_hash)) {
+  // 같은 이름이 여러 명(다른 교육 포함)이면 비밀번호가 맞는 사람으로 구분한다.
+  // 비밀번호까지 같은 사람이 둘 이상이면 어느 쪽인지 알 수 없으므로 막는다.
+  const verified = matches.filter((m) => m.password_hash && verifyPassword(password, m.password_hash));
+  if (verified.length === 0) {
     return NextResponse.json({ error: '이름 또는 비밀번호가 올바르지 않습니다.' }, { status: 401 });
   }
+  if (verified.length > 1) {
+    return NextResponse.json({ error: '동일한 이름의 교육생이 여러 명 있습니다. 관리자에게 문의해주세요.' }, { status: 409 });
+  }
+  const student = verified[0];
 
   const res = NextResponse.json({ ok: true, role: 'student' });
   res.cookies.set('student_sid', JSON.stringify({ id: student.id }), {

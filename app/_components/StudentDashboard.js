@@ -23,17 +23,19 @@ function fmtDate(d) {
 
 async function getStudentData(id) {
   const db = supabaseAdmin();
-  const [{ data: student }, { data: sessions }, { data: attendanceRows }, { data: links }, { data: qrCodes }, { data: noticeRow }, { data: adminFeedback }] = await Promise.all([
-    db.from('students').select('*').eq('id', id).maybeSingle(),
-    db.from('sessions').select('*').order('n'),
+  // 교육생이 속한 교육(course_id)의 일정·링크·공지만 읽는다
+  const { data: student } = await db.from('students').select('*').eq('id', id).maybeSingle();
+  if (!student) return null;
+  const courseId = student.course_id;
+
+  const [{ data: sessions }, { data: attendanceRows }, { data: links }, { data: qrCodes }, { data: noticeRow }, { data: adminFeedback }] = await Promise.all([
+    db.from('sessions').select('*').eq('course_id', courseId).order('n'),
     db.from('attendance').select('*').eq('student_id', id),
-    db.from('links').select('*'),
-    db.from('qr_codes').select('*'),
-    db.from('notice').select('*').eq('id', 'main').maybeSingle(),
+    db.from('links').select('*').eq('course_id', courseId),
+    db.from('qr_codes').select('*').eq('course_id', courseId),
+    db.from('notice').select('*').eq('id', courseId).maybeSingle(),
     db.from('feedback').select('created_at').eq('student_id', id).eq('author_role', 'admin')
   ]);
-
-  if (!student) return null;
 
   const stats = computeStats(sessions || [], attendanceRows || []);
   const bySession = new Map((attendanceRows || []).map((a) => [a.session_n, a]));
@@ -67,11 +69,11 @@ async function getStudentData(id) {
   // 구글 드라이브 과제 폴더를 자동으로 확인한 제출 현황 (설정이 없거나 읽기 실패 시 카드를 숨김)
   let submission = null;
   try {
-    const drive = await getSubmissionData();
+    const drive = await getSubmissionData(courseId);
     const mine = drive.ok ? findStudent(drive, student.name) : null;
     if (mine) {
       const items = (sessions || [])
-        .filter((s) => hasAssignment(s.n) && s.date <= today)
+        .filter((s) => hasAssignment(s.n, courseId) && s.date <= today)
         .map((s) => {
           const info = mine.sessions[s.n];
           return { n: s.n, submitted: Boolean(info && info.count > 0), count: info ? info.count : 0, last: info ? info.last : '' };
@@ -83,11 +85,11 @@ async function getStudentData(id) {
   // 생성형 AI 계정·주의사항 안내가 등록돼 있으면 버튼을 보여줌
   let hasAiInfo = false;
   try {
-    const ai = await getAiConfig();
+    const ai = await getAiConfig(courseId);
     hasAiInfo = ai.tools.length > 0 || Boolean(ai.common);
   } catch (e) { /* 읽지 못하면 버튼만 숨김 */ }
 
-  return { student, stats, rows, upcomingLessons, submission, hasAiInfo, links: sortedLinks, qrCodes: qrCodes || [], notice: noticeRow?.content || '', unseenFeedback };
+  return { courseId, student, stats, rows, upcomingLessons, submission, hasAiInfo, links: sortedLinks, qrCodes: qrCodes || [], notice: noticeRow?.content || '', unseenFeedback };
 }
 
 // 링크가 설정돼 있으면 카드 전체를 눌러 새 탭으로 이동, 없으면 그냥 표시만
@@ -118,7 +120,7 @@ export default async function StudentDashboard({ id, previewMode }) {
     );
   }
 
-  const [data, settings] = await Promise.all([getStudentData(id), getSettings()]);
+  const data = await getStudentData(id);
 
   if (!data) {
     return (
@@ -133,6 +135,7 @@ export default async function StudentDashboard({ id, previewMode }) {
     );
   }
 
+  const settings = await getSettings(data.courseId);
   const { student, stats, rows, upcomingLessons, submission, hasAiInfo, links, qrCodes, notice, unseenFeedback } = data;
   const qrByKey = new Map(qrCodes.map((q) => [q.key, q]));
   const attendanceQr = qrByKey.get('attendance');
@@ -170,7 +173,7 @@ export default async function StudentDashboard({ id, previewMode }) {
             <div className="lesson-box">
               <div className="lesson-box-title">수업 안내</div>
               {upcomingLessons.map((l) => (
-                <a key={l.n} className="lesson-item" href={'/lesson/' + l.n}>
+                <a key={l.n} className="lesson-item" href={'/lesson/' + l.n + '?course=' + data.courseId}>
                   <span className={'lesson-when' + (l.isToday ? ' today' : '')}>{l.isToday ? '오늘' : '내일'}</span>
                   <span className="lesson-main">
                     <b>{l.n}회차 · {l.topic}</b>
@@ -261,11 +264,11 @@ export default async function StudentDashboard({ id, previewMode }) {
                 {rows.map((r) =>
                   !r.done ? (
                     <tr className="future" key={r.n}>
-                      <td>{r.lessonOpen ? <a className="lesson-link" href={'/lesson/' + r.n}>{r.n}</a> : r.n}</td><td>{fmtDate(r.date)}</td><td>{r.type}</td><td>-</td><td>-</td>
+                      <td>{r.lessonOpen ? <a className="lesson-link" href={'/lesson/' + r.n + '?course=' + data.courseId}>{r.n}</a> : r.n}</td><td>{fmtDate(r.date)}</td><td>{r.type}</td><td>-</td><td>-</td>
                     </tr>
                   ) : (
                     <tr key={r.n}>
-                      <td>{r.lessonOpen ? <a className="lesson-link" href={'/lesson/' + r.n}>{r.n}</a> : r.n}</td><td>{fmtDate(r.date)}</td><td>{r.type}</td>
+                      <td>{r.lessonOpen ? <a className="lesson-link" href={'/lesson/' + r.n + '?course=' + data.courseId}>{r.n}</a> : r.n}</td><td>{fmtDate(r.date)}</td><td>{r.type}</td>
                       <td className={r.status === '출석' ? 'att-ok' : 'att-no'}>{r.status || '미입력'}</td>
                       <td>{h(r.recognizedHours)}</td>
                     </tr>

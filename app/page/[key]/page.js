@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { getSettings } from '../../../lib/settings';
+import { viewerCourse } from '../../../lib/courses';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,9 +10,10 @@ export default async function ContentPage({ params, searchParams }) {
   const studentId = sp?.id;
 
   const db = supabaseAdmin();
+  const courseId = await viewerCourse({ studentId, courseParam: sp?.course });
   const [{ data: link }, settings] = await Promise.all([
-    db.from('links').select('*').eq('key', key).maybeSingle(),
-    getSettings()
+    db.from('links').select('*').eq('course_id', courseId).eq('key', key).maybeSingle(),
+    getSettings(courseId)
   ]);
 
   if (!link) {

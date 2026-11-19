@@ -27,7 +27,8 @@ function BoardInner() {
   const [courseTitle, setCourseTitle] = useState(DEFAULT_COURSE_TITLE);
 
   useEffect(() => {
-    fetch('/api/questions')
+    const q = studentId ? '?id=' + encodeURIComponent(studentId) : '';
+    fetch('/api/questions' + q)
       .then((r) => r.json())
       .then((j) => {
         if (j.error) throw new Error(j.error);
@@ -35,7 +36,7 @@ function BoardInner() {
       })
       .catch((err) => setLoadError(err.message));
 
-    fetch('/api/settings')
+    fetch('/api/settings' + q)
       .then((r) => r.json())
       .then((j) => { if (j.courseTitle) setCourseTitle(j.courseTitle); })
       .catch(() => {});

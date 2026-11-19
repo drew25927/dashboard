@@ -3,22 +3,26 @@ import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { getSettings } from '../../../lib/settings';
 import { getAuthorizedAdmin } from '../../../lib/adminAuth';
 import { getAuthorizedStudent } from '../../../lib/studentAuth';
+import { viewerCourse } from '../../../lib/courses';
 import { fmtKoreanDate, isLessonOpen, lessonOpenDate, lessonTimeRange, parseDetail } from '../../../lib/lesson';
 
 export const dynamic = 'force-dynamic';
 
 // 수업 하루 전 0시(한국 시간)부터 교육생에게 공개. 관리자는 미리보기로 언제든 열람 가능.
-export default async function LessonPage({ params }) {
+export default async function LessonPage({ params, searchParams }) {
   const { n } = await params;
+  const sp = await searchParams;
   const num = Number(n);
 
   const [admin, student] = await Promise.all([getAuthorizedAdmin(), getAuthorizedStudent()]);
   if (!admin && !student) redirect('/login');
 
   const db = supabaseAdmin();
+  // 교육생은 본인 교육, 관리자는 ?course= 로 고른 교육의 회차를 본다
+  const courseId = await viewerCourse({ courseParam: sp?.course });
   const [{ data: session }, settings] = await Promise.all([
-    Number.isInteger(num) ? db.from('sessions').select('*').eq('n', num).maybeSingle() : Promise.resolve({ data: null }),
-    getSettings()
+    Number.isInteger(num) ? db.from('sessions').select('*').eq('course_id', courseId).eq('n', num).maybeSingle() : Promise.resolve({ data: null }),
+    getSettings(courseId)
   ]);
 
   const shell = (children) => (
