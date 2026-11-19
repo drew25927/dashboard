@@ -109,7 +109,7 @@ function AdminCourse({ courseId, courses, onSwitch, reloadCourses }) {
 
   const loadSettings = useCallback(() => {
     apiCall('/api/admin/settings')
-      .then((j) => setSettings({ courseTitle: j.courseTitle || DEFAULT_COURSE_TITLE, courseSub: j.courseSub || DEFAULT_COURSE_SUB, driveFolderId: j.driveFolderId || '', isMain: Boolean(j.isMain) }))
+      .then((j) => setSettings({ courseTitle: j.courseTitle || (j.isMain ? DEFAULT_COURSE_TITLE : ''), courseSub: j.courseSub || (j.isMain ? DEFAULT_COURSE_SUB : ''), driveFolderId: j.driveFolderId || '', isMain: Boolean(j.isMain) }))
       .catch(() => {});
   }, []);
 

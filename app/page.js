@@ -3,8 +3,17 @@ import StudentDashboard from './_components/StudentDashboard';
 import { getAuthorizedAdmin } from '../lib/adminAuth';
 import { getAuthorizedStudent } from '../lib/studentAuth';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
+import { getSettings } from '../lib/settings';
 
 export const dynamic = 'force-dynamic';
+// 브라우저 탭 제목: 교육생이 속한 교육의 과정명 (다른 교육 교육생에게 기존 교육 이름이 보이지 않게)
+export async function generateMetadata() {
+  const student = await getAuthorizedStudent();
+  if (!student?.course_id) return {};
+  const settings = await getSettings(student.course_id);
+  return { title: settings.courseTitle + ' 대시보드' };
+}
+
 export const maxDuration = 60; // 하루 3번 시각이 지난 뒤 첫 접속 때 백그라운드로 드라이브를 읽음
 
 // 접근 규칙:
