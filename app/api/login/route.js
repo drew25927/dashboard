@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { verifyPassword } from '../../../lib/adminAuth';
+import { signSession } from '../../../lib/session';
 
 // 통합 로그인: 이름+비밀번호 하나로 관리자/교육생을 자동 구분합니다.
 // 순서: ① 마스터(이름 비움 + ADMIN_PASSWORD) ② 관리자 계정 ③ 교육생 계정
@@ -54,7 +55,7 @@ export async function POST(req) {
   const student = verified[0];
 
   const res = NextResponse.json({ ok: true, role: 'student' });
-  res.cookies.set('student_sid', JSON.stringify({ id: student.id }), {
+  res.cookies.set('student_sid', signSession({ id: student.id }, 60 * 60 * 24 * 90), {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',
@@ -66,7 +67,7 @@ export async function POST(req) {
 
 function setAdminSession(id) {
   const res = NextResponse.json({ ok: true, role: 'admin' });
-  res.cookies.set('admin_session', JSON.stringify({ id }), {
+  res.cookies.set('admin_session', signSession({ id }, 60 * 60 * 24 * 30), {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',
