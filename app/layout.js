@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'AI 영상 제작 전문가 과정 대시보드'
+  title: 'AI 미디어센터 교육 대시보드'
 };
 
 export default function RootLayout({ children }) {
