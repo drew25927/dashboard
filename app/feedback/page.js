@@ -29,7 +29,7 @@ export default async function FeedbackPage() {
   const latestAdminAt = [...items].reverse().find((r) => r.author_role === 'admin')?.created_at || null;
 
   return (
-    <div className="page">
+    <div className="page split-page">
       <MarkSeen hasNew={hasNew} upTo={latestAdminAt} />
       <div className="topbar">
         <span className="badge-mode">과제 피드백</span>

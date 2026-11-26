@@ -8,7 +8,7 @@ function asked(list) { return list.filter((q) => !q.is_faq); }
 
 export default function BoardPage() {
   return (
-    <Suspense fallback={<div className="page"><div className="state"><div className="spinner" /></div></div>}>
+    <Suspense fallback={<div className="page split-page"><div className="state"><div className="spinner" /></div></div>}>
       <BoardInner />
     </Suspense>
   );
@@ -65,7 +65,7 @@ function BoardInner() {
   }
 
   return (
-    <div className="page">
+    <div className="page split-page">
       <div className="topbar">
         <span className="badge-mode">질문 게시판</span>
         <a href="/">← Home</a>
