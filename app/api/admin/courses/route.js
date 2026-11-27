@@ -86,7 +86,7 @@ export async function DELETE(req) {
       await db.from('admins').update({ course_ids: a.course_ids.filter((c) => c !== id) }).eq('id', a.id);
     }
   }
-  await db.storage.from('app-data').remove([storeName('ai-accounts', id), storeName('submissions', id)]).catch(() => {});
+  await db.storage.from('app-data').remove([storeName('ai-accounts', id), storeName('submissions', id), storeName('menu', id)]).catch(() => {});
   const { data: qrFiles } = await db.storage.from('qr-codes').list('', { search: id + '-' }).catch(() => ({ data: [] }));
   const qrNames = (qrFiles || []).map((f) => f.name).filter((n) => n.startsWith(id + '-'));
   if (qrNames.length) await db.storage.from('qr-codes').remove(qrNames).catch(() => {});

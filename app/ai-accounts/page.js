@@ -4,6 +4,7 @@ import { getSettings } from '../../lib/settings';
 import { getAuthorizedAdmin } from '../../lib/adminAuth';
 import { getAuthorizedStudent } from '../../lib/studentAuth';
 import { getAiConfig, viewFor, viewForStaff } from '../../lib/aiAccounts';
+import { getMenuFlags } from '../../lib/menus';
 import { SecretRow } from './AccountsClient';
 import { COURSE_ID_RE, MAIN_COURSE } from '../../lib/courses';
 
@@ -33,7 +34,9 @@ export default async function AiAccountsPage({ searchParams }) {
 
   const staffCourse = COURSE_ID_RE.test(sp?.course || '') && canOpen(sp.course) ? sp.course : (admin?.id === 'master' ? MAIN_COURSE : (admin?.course_ids || [])[0] || MAIN_COURSE);
   const courseId = staffMode ? staffCourse : target.course_id;
-  const [cfg, settings] = await Promise.all([getAiConfig(courseId), getSettings(courseId)]);
+  const [cfg, settings, menus] = await Promise.all([getAiConfig(courseId), getSettings(courseId), getMenuFlags(courseId)]);
+  // 생성형 AI를 제공하지 않는 교육은 이 화면을 열지 않는다
+  if (menus.hideAi) redirect(admin && !student ? '/admin' : '/');
   const view = staffMode ? viewForStaff(cfg, admin.name) : viewFor(cfg, target.id);
   const empty = !view.common && view.tools.length === 0 && !view.hasGoogleSection && !view.guide && !view.help && !(view.staff && view.staff.length);
 

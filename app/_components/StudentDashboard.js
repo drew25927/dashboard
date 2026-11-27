@@ -5,6 +5,7 @@ import { fmtKoreanDate, isLessonOpen, kstToday, lessonTimeRange } from '../../li
 import { findStudent, getSubmissionData } from '../../lib/drive';
 import { hasAssignment } from '../../lib/assignments';
 import { getAiConfig } from '../../lib/aiAccounts';
+import { getMenuFlags } from '../../lib/menus';
 import LogoutButton from './LogoutButton';
 
 const BUTTON_ORDER = ['zoom', 'venue', 'office', 'submit', 'notice', 'replay', 'feedback'];
@@ -85,8 +86,8 @@ async function getStudentData(id) {
   // 생성형 AI 계정·주의사항 안내가 등록돼 있으면 버튼을 보여줌
   let hasAiInfo = false;
   try {
-    const ai = await getAiConfig(courseId);
-    hasAiInfo = ai.tools.length > 0 || Boolean(ai.common);
+    const [ai, menus] = await Promise.all([getAiConfig(courseId), getMenuFlags(courseId)]);
+    hasAiInfo = !menus.hideAi && (ai.tools.length > 0 || Boolean(ai.common));
   } catch (e) { /* 읽지 못하면 버튼만 숨김 */ }
 
   return { courseId, student, stats, rows, upcomingLessons, submission, hasAiInfo, links: sortedLinks, qrCodes: qrCodes || [], notice: noticeRow?.content || '', unseenFeedback };

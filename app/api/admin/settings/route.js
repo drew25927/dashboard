@@ -3,22 +3,25 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabaseAdmin';
 import { requireAdminCourse, getCourse, parseDriveFolderId, MAIN_COURSE } from '../../../../lib/courses';
+import { getMenuFlags, saveMenuFlags } from '../../../../lib/menus';
 
 export async function GET(req) {
   const { error: authErr, courseId } = await requireAdminCourse(req);
   if (authErr) return authErr;
 
   const db = supabaseAdmin();
-  const [{ data, error }, course] = await Promise.all([
+  const [{ data, error }, course, menus] = await Promise.all([
     db.from('settings').select('*').eq('id', courseId).maybeSingle(),
-    getCourse(courseId)
+    getCourse(courseId),
+    getMenuFlags(courseId)
   ]);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({
     courseTitle: data?.course_title || '',
     courseSub: data?.course_sub || '',
     driveFolderId: course?.drive_folder_id || '',
-    isMain: courseId === MAIN_COURSE
+    isMain: courseId === MAIN_COURSE,
+    hideAi: menus.hideAi
   });
 }
 
@@ -27,7 +30,7 @@ export async function PUT(req) {
   const { error: authErr, courseId } = await requireAdminCourse(req);
   if (authErr) return authErr;
 
-  const { courseTitle, courseSub, driveFolder } = await req.json();
+  const { courseTitle, courseSub, driveFolder, hideAi } = await req.json();
   const db = supabaseAdmin();
 
   if (typeof driveFolder === 'string') {
@@ -44,5 +47,13 @@ export async function PUT(req) {
     .update({ course_title: courseTitle || '', course_sub: courseSub || '' })
     .eq('id', courseId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (typeof hideAi === 'boolean') {
+    try {
+      await saveMenuFlags(courseId, { hideAi });
+    } catch (e) {
+      return NextResponse.json({ error: '메뉴 설정을 저장하지 못했습니다: ' + e.message }, { status: 500 });
+    }
+  }
   return NextResponse.json({ ok: true });
 }

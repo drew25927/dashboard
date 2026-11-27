@@ -117,7 +117,7 @@ function AdminCourse({ courseId, courses, onSwitch, reloadCourses }) {
 
   const loadSettings = useCallback(() => {
     apiCall('/api/admin/settings')
-      .then((j) => setSettings({ courseTitle: j.courseTitle || (j.isMain ? DEFAULT_COURSE_TITLE : ''), courseSub: j.courseSub || (j.isMain ? DEFAULT_COURSE_SUB : ''), driveFolderId: j.driveFolderId || '', isMain: Boolean(j.isMain) }))
+      .then((j) => setSettings({ courseTitle: j.courseTitle || (j.isMain ? DEFAULT_COURSE_TITLE : ''), courseSub: j.courseSub || (j.isMain ? DEFAULT_COURSE_SUB : ''), driveFolderId: j.driveFolderId || '', isMain: Boolean(j.isMain), hideAi: Boolean(j.hideAi) }))
       .catch(() => {});
   }, []);
 
@@ -244,7 +244,7 @@ function AdminCourse({ courseId, courses, onSwitch, reloadCourses }) {
           ['notice', '공지사항'], ['links', '링크 설정'], ['questions', '질문 게시판'], ['submissions', '과제 제출 현황'], ['feedback', '과제 피드백'], ['aiaccounts', '생성형 AI 계정'],
           ...(isMaster ? [['courses', '교육 관리'], ['admins', '관리자 계정']] : []),
           ['overview', '전체 현황']
-        ].map(([k, label]) => (
+        ].filter(([k]) => !(k === 'aiaccounts' && settings.hideAi)).map(([k, label]) => (
           <button key={k} className={'tab-btn' + (tab === k ? ' active' : '')} onClick={() => { setTab(k); if (k === 'questions') setQAlert(''); }}>
             {label}
             {k === 'questions' && pendingQ > 0 && <span className="new-count">{pendingQ}</span>}
@@ -279,7 +279,7 @@ function AdminCourse({ courseId, courses, onSwitch, reloadCourses }) {
       {tab === 'submissions' && (
         <SubmissionsPanel students={students} sessions={sessions} courseId={courseId} showToast={showToast} />
       )}
-      {tab === 'aiaccounts' && (
+      {tab === 'aiaccounts' && !settings.hideAi && (
         <AiAccountsPanel students={students} courseId={courseId} showToast={showToast} />
       )}
       {tab === 'feedback' && (
@@ -621,9 +621,10 @@ function CoursePanel({ settings, loadSettings, showToast }) {
   const [sub, setSub] = useState(settings.courseSub);
   const [drive, setDrive] = useState(settings.driveFolderId ? 'https://drive.google.com/drive/folders/' + settings.driveFolderId : '');
   const [saving, setSaving] = useState(false);
+  const [useAi, setUseAi] = useState(!settings.hideAi);
 
   useEffect(() => {
-    setTitle(settings.courseTitle); setSub(settings.courseSub);
+    setTitle(settings.courseTitle); setSub(settings.courseSub); setUseAi(!settings.hideAi);
     setDrive(settings.driveFolderId ? 'https://drive.google.com/drive/folders/' + settings.driveFolderId : '');
   }, [settings]);
 
@@ -633,7 +634,7 @@ function CoursePanel({ settings, loadSettings, showToast }) {
       await apiCall('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseTitle: title, courseSub: sub, driveFolder: drive })
+        body: JSON.stringify({ courseTitle: title, courseSub: sub, driveFolder: drive, hideAi: !useAi })
       });
       loadSettings();
       showToast('저장했습니다');
@@ -652,6 +653,8 @@ function CoursePanel({ settings, loadSettings, showToast }) {
       <div className="row"><label style={{ minWidth: 60 }} className="small-dim">부제</label><input type="text" style={{ flex: 1, minWidth: 240 }} value={sub} onChange={(e) => setSub(e.target.value)} /></div>
       <div className="row"><label style={{ minWidth: 60 }} className="small-dim">과제 폴더</label><input type="text" style={{ flex: 1, minWidth: 240 }} placeholder={settings.isMain ? '구글 드라이브 과제 폴더 주소 (비워 두면 기존 폴더 사용)' : '구글 드라이브 과제 폴더 주소'} value={drive} onChange={(e) => setDrive(e.target.value)} /></div>
       <p className="small-dim" style={{ marginBottom: 12 }}>"과제 제출 현황"이 읽는 폴더입니다. 폴더 안에 &quot;번호_이름 / 1회차 / 파일&quot; 구조로 제출하고, 폴더를 &quot;링크가 있는 모든 사용자&quot;에게 공유해 두어야 합니다. 비워 두면 이 교육은 과제 제출 현황을 사용하지 않습니다.</p>
+      <div className="row"><label className="small-dim" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}><input type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} />생성형 AI 계정 메뉴 사용</label></div>
+      <p className="small-dim" style={{ marginBottom: 12 }}>생성형 AI를 제공하지 않는 교육은 체크를 끄고 [저장]하세요. 관리자 화면의 &quot;생성형 AI 계정&quot; 탭과 교육생 화면의 버튼이 숨겨집니다. 입력해 둔 계정 정보는 지워지지 않습니다.</p>
       <button className="btn" onClick={save} disabled={saving}>{saving ? '저장 중…' : '저장'}</button>
     </div>
   );
